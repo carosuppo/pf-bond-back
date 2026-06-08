@@ -1,0 +1,117 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum RoleEnum {
+  ADMIN
+  MEMBER
+}
+
+// Models
+model User {
+  id               Int       @id @default(autoincrement())
+  name             String
+  phone            String
+  currentLocation  Location  @relation(fields: [locationId], references: [id])
+  locationId       Int       @unique
+
+  members          Member[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+}
+
+model Group {
+  id                               Int            @id @default(autoincrement())
+  name                             String
+  shareLocationMandatorily         Boolean        @default(false)
+  
+  members                          Member[]
+  events                           Event[]
+  pointsOfInterest                 PointOfInterest[]
+  reminders                        Reminder[]
+
+  createdAt                        DateTime       @default(now())
+  updatedAt                        DateTime       @updatedAt
+  deletedAt                        DateTime?
+}
+
+model Member {
+  id        Int    @id @default(autoincrement())
+  userId    Int
+  groupId   Int
+  roleId    Int
+
+  role      Role   @relation(fields: [roleId], references: [id])
+  group     Group  @relation(fields: [groupId], references: [id])
+  user      User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  role        RoleEnum   @unique
+  description String
+  members     Member[]
+}
+
+model Event {
+  id              Int       @id @default(autoincrement())
+  date            DateTime
+  name            String
+  budget          Int
+  accumulatedCash Int       @default(0)
+  groupId         Int
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  
+  group           Group     @relation(fields: [groupId], references: [id])
+}
+
+model Reminder {
+  id          Int       @id @default(autoincrement())
+  description String
+  dueDate     DateTime
+  groupId     Int
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  
+  group       Group     @relation(fields: [groupId], references: [id])
+}
+
+model PointOfInterest {
+  id          Int       @id @default(autoincrement())
+  name        String
+  isTemporary Boolean   @default(false)
+  endTime     DateTime?
+  locationId  Int       @unique
+  groupId     Int
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  group       Group     @relation(fields: [groupId], references: [id])
+  location    Location  @relation(fields: [locationId], references: [id])
+}
+
+model Location {
+  id              Int              @id @default(autoincrement())
+  coordinates     String
+  user            User?
+  pointOfInterest PointOfInterest?
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}

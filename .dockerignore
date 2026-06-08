@@ -1,0 +1,44 @@
+# Node dependencies should not be copied into the image.
+node_modules
+
+# Build artifacts and local build output
+dist
+build
+
+# Logs and debug output
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage and test artifacts
+coverage
+.nyc_output
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Git metadata
+.git
+
+# IDE/editor config
+.vscode
+.idea
+*.sublime-workspace
+.project
+.classpath
+
+# Local environment files and secrets
+.env
+.env.*
+.env.temp
+
+# Temporary folders
+.temp
+.tmp
+
+# Prisma generated files if not committed
+/generated/prisma
