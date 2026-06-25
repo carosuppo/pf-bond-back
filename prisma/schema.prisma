@@ -1,117 +1,45 @@
-datasource db {
-  provider = "postgresql"
-}
+Planificar host con los recursos suficientes para soportar una maquina virtual con Windows Server 2019 y Sql Server 2019, obtener datos referentes a Hardware disponible en el Mercado, dispositivos de almacenamiento, el objetivo es simular el proceso de evaluación de alternativas y  generar el proyecto para después implementar,  analizar factibilidad económica,  recursos a utilizar, tiempos estimados.
 
-generator client {
-  provider = "prisma-client-js"
-  url      = env("DATABASE_URL")
-}
+Planificar y dimensionar adecuadamente un servidor para ejecutar una máquina virtual de Windows Server 2019 con SQL Server 2019 es un proceso crítico para garantizar el rendimiento y la disponibilidad de tu aplicación. Aquí tienes una guía general sobre cómo abordar esta planificación:
 
-// Enums
-enum RoleEnum {
-  ADMIN
-  MEMBER
-}
+Paso 1: Requisitos de hardware y software
 
-// Models
-model User {
-  id               Int       @id @default(autoincrement())
-  name             String
-  phone            String
-  currentLocation  Location  @relation(fields: [locationId], references: [id])
-  locationId       Int       @unique
+Requisitos de Windows Server 2019 y SQL Server 2019: Comienza por revisar los requisitos de hardware y software para Windows Server 2019 y SQL Server 2019 en el sitio web de Microsoft. Esto te proporcionará una base sólida para la planificación. Asegúrate de tener las licencias necesarias para ambos productos.
 
-  members          Member[]
+Carga de trabajo: Define claramente la carga de trabajo que esperas en tu aplicación. Esto incluye el número de usuarios concurrentes, el tamaño de la base de datos, la cantidad de tráfico de red, etc.
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
-}
+Paso 2: Selección de hardware
 
-model Group {
-  id                               Int            @id @default(autoincrement())
-  name                             String
-  shareLocationMandatorily         Boolean        @default(false)
-  
-  members                          Member[]
-  events                           Event[]
-  pointsOfInterest                 PointOfInterest[]
-  reminders                        Reminder[]
+Selección del servidor: Investiga y selecciona un servidor físico o una plataforma de virtualización adecuada para tus necesidades. Deberás considerar aspectos como la capacidad de CPU, la RAM, el almacenamiento, las tarjetas de red, la redundancia y la escalabilidad.
 
-  createdAt                        DateTime       @default(now())
-  updatedAt                        DateTime       @updatedAt
-  deletedAt                        DateTime?
-}
+CPU: Determina la cantidad de núcleos de CPU necesarios. SQL Server suele ser intensivo en CPU, así que asegúrate de tener suficiente potencia de procesamiento.
 
-model Member {
-  id        Int    @id @default(autoincrement())
-  userId    Int
-  groupId   Int
-  roleId    Int
+Memoria RAM: Calcula cuánta RAM necesitas. Para SQL Server, la cantidad de RAM disponible es crítica. Deberás asignar suficiente RAM para la base de datos y también para el sistema operativo y otras aplicaciones.
 
-  role      Role   @relation(fields: [roleId], references: [id])
-  group     Group  @relation(fields: [groupId], references: [id])
-  user      User   @relation(fields: [userId], references: [id])
+Almacenamiento: Decide si usarás discos duros tradicionales o SSD. Configura el almacenamiento para la base de datos y el sistema operativo. Considera la posibilidad de usar almacenamiento RAID para redundancia y rendimiento.
 
-  @@unique([userId, groupId])
-}
+Paso 3: Configuración de la máquina virtual
 
-model Role {
-  id          Int      @id @default(autoincrement())
-  role        RoleEnum   @unique
-  description String
-  members     Member[]
-}
+Virtualización: Si estás utilizando una plataforma de virtualización como VMware ESXi, asigna recursos a tu máquina virtual de acuerdo con los requisitos que has calculado.
 
-model Event {
-  id              Int       @id @default(autoincrement())
-  date            DateTime
-  name            String
-  budget          Int
-  accumulatedCash Int       @default(0)
-  groupId         Int
+CPU y RAM para la VM: Asigna la cantidad adecuada de CPU y RAM a la máquina virtual. Esto dependerá de tus cálculos y del rendimiento deseado. Puedes ajustar estos recursos más tarde si es necesario.
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
-  
-  group           Group     @relation(fields: [groupId], references: [id])
-}
+Almacenamiento para la VM: Asigna espacio de almacenamiento suficiente para la máquina virtual y sus discos virtuales. También puedes configurar instantáneas (snapshots) para respaldos y recuperación.
 
-model Reminder {
-  id          Int       @id @default(autoincrement())
-  description String
-  dueDate     DateTime
-  groupId     Int
+Paso 4: Evaluación de factibilidad económica
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  
-  group       Group     @relation(fields: [groupId], references: [id])
-}
+Costos de hardware y software: Calcula los costos de adquisición del hardware y el software necesario, incluyendo licencias de Windows Server y SQL Server, así como el costo del servidor físico o plataforma de virtualización.
 
-model PointOfInterest {
-  id          Int       @id @default(autoincrement())
-  name        String
-  isTemporary Boolean   @default(false)
-  endTime     DateTime?
-  locationId  Int       @unique
-  groupId     Int
+Costos operativos: Estima los costos operativos, como la electricidad, el enfriamiento y el mantenimiento del servidor.
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+Paso 5: Implementación y pruebas
 
-  group       Group     @relation(fields: [groupId], references: [id])
-  location    Location  @relation(fields: [locationId], references: [id])
-}
+Implementación: Adquiere el hardware y el software, instálalos y configúralos según lo planeado. Luego, instala Windows Server 2019 y SQL Server 2019 en la máquina virtual.
 
-model Location {
-  id              Int              @id @default(autoincrement())
-  coordinates     String
-  user            User?
-  pointOfInterest PointOfInterest?
+Pruebas de rendimiento: Realiza pruebas exhaustivas de rendimiento para asegurarte de que la configuración cumple con tus expectativas y los requisitos de tu aplicación. Ajusta la configuración según sea necesario.
 
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-}
+Paso 6: Documentación y seguimiento
+
+Documentación: Mantén un registro detallado de la configuración y la arquitectura de tu servidor, así como de los costos asociados. Esto será útil para futuras referencias y auditorías.
+
+Seguimiento continuo: Supervisa el rendimiento de tu servidor de forma continua y ajusta los recursos según sea necesario para garantizar que cumpla con los requisitos de tu aplicación.
