@@ -1,0 +1,53 @@
+USO DEL SESSION AUTH GUARD
+
+Para proteger un endpoint, importar el guard:
+
+import { UseGuards } from '@nestjs/common';
+import { SessionAuthGuard } from './guard/session-auth.guard';
+
+Luego agregar el decorador arriba del método del controller:
+
+@UseGuards(SessionAuthGuard)
+
+Ejemplo:
+
+@Post()
+@UseGuards(SessionAuthGuard)
+async create(
+  @Body() createGroupDto: CreateGroupDto,
+): Promise<GroupResponseDto> {
+  return this.groupService.createGroup(createGroupDto);
+}
+
+El cliente debe mandar el token de sesión en el header:
+
+Authorization: Bearer <sessionToken>
+
+Ese sessionToken se obtiene al registrarse o iniciar sesión.
+
+NO usar este guard en endpoints públicos como:
+
+POST /user
+POST /user/login
+
+SÍ usar en endpoints que requieran usuario logueado, por ejemplo:
+
+GET /user/me
+POST /groups
+GET /groups
+PATCH /user/current-location
+
+El guard valida:
+- Que exista el header Authorization.
+- Que tenga formato Bearer token.
+- Que la sesión exista en la base.
+- Que no esté vencida.
+- Que no esté revocada.
+- Que el usuario no esté eliminado.
+
+Si todo está bien, agrega el usuario al request:
+
+request.user
+request.sessionId
+
+Así el controller puede saber qué usuario está haciendo la petición.
