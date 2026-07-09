@@ -8,4 +8,5 @@ export type UserSessionWithUser = UserSession & {
 export interface IUserSessionRepository {
   create(createUserSessionData: CreateUserSessionData): Promise<UserSession>;
   findActiveByTokenHash(tokenHash: string): Promise<UserSessionWithUser | null>;
+  revokeById(sessionId: number): Promise<void>;
 }

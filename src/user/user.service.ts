@@ -112,4 +112,8 @@ export class UserService {
 
     return UserSessionMapper.toSessionTokenData(sessionToken, expiresAt);
   }
+
+  async logout(sessionId: number): Promise<void> {
+    await this.userSessionRepository.revokeById(sessionId);
+  }
 }

@@ -54,4 +54,11 @@ export class UserController {
   me(@Req() request: AuthenticatedRequest): UserResponseDto {
     return request.user!;
   }
+
+  @Post('logout')
+  @UseGuards(SessionAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logout(@Req() request: AuthenticatedRequest): Promise<void> {
+    await this.userService.logout(request.sessionId!);
+  }
 }

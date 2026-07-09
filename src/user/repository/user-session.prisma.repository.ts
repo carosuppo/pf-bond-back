@@ -39,4 +39,15 @@ export class UserSessionPrismaRepository implements IUserSessionRepository {
       },
     });
   }
+
+  async revokeById(sessionId: number): Promise<void> {
+    await this.prismaService.userSession.update({
+      where: {
+        id: sessionId,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+  }
 }
