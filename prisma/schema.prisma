@@ -31,7 +31,9 @@ model User {
 model Group {
   id                               Int            @id @default(autoincrement())
   name                             String
+  description                      String?
   shareLocationMandatorily         Boolean        @default(false)
+  invitationCode                   String         @unique
   
   members                          Member[]
   events                           Event[]

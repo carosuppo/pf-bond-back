@@ -5,7 +5,11 @@ export class CreateGroupDto {
   @IsNotEmpty()
   name!: string;
 
+  @IsString()
+  @IsOptional()
+  description?: string;
+
   @IsBoolean()
   @IsOptional()
-  shareLocationMandatorily?: boolean;
+  shareLocationMandatorily!: boolean;
 }

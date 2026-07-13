@@ -4,24 +4,24 @@ import { CreateGroupDto } from '../dto/create-group.dto';
 import { GroupResponseDto } from '../dto/group-response.dto';
 
 export class GroupMapper {
-  /**
-   * De Controlador (DTO) a Repositorio (Prisma)
-   */
-  static toPersistence(dto: CreateGroupDto): Prisma.GroupCreateInput {
+  static toPersistence(
+    dto: CreateGroupDto,
+    invitationCode: string,
+  ): Prisma.GroupCreateInput {
     return {
       name: dto.name,
-      shareLocationMandatorily: dto.shareLocationMandatorily ?? false,
+      description: dto.description,
+      shareLocationMandatorily: dto.shareLocationMandatorily,
+      invitationCode,
     };
   }
 
-  /**
-   * De Repositorio (Prisma) a Controlador (Response DTO)
-   */
   static toResponse(entity: Group): GroupResponseDto {
     return {
-      id: entity.id,
       name: entity.name,
+      description: entity.description ?? null,
       shareLocationMandatorily: entity.shareLocationMandatorily,
+      invitationCode: entity.invitationCode,
     };
   }
 }

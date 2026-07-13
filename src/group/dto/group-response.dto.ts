@@ -1,6 +1,6 @@
-// src/group/dto/group-response.dto.ts
 export class GroupResponseDto {
-  id!: number;
   name!: string;
+  description?: string | null;
   shareLocationMandatorily!: boolean;
+  invitationCode!: string;
 }
