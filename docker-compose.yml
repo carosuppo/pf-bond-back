@@ -1,28 +1,52 @@
 services:
-  app:
-    build: .
-    ports:
-      - '3000:3000'
-    volumes:
-      - ./:/usr/src/app
-      - /usr/src/app/node_modules
-    environment:
-      DATABASE_URL: 'postgresql://postgres:postgres@db:5432/bond_dev?schema=public'
-      NODE_ENV: development
-    depends_on:
-      - db
-
-  db:
-    image: postgres:15
+  postgres:
+    image: postgres:17-alpine
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    container_name: bond-bd
     restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: bond_dev
+    env_file:
+      - .env
     ports:
       - '5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - nest_network
+
+  backend:
+    build:
+      context: .
+      target: dev
+    container_name: bond-back
+    restart: always
+    command: sh -c "npm install && npx prisma generate &&  npm run start:dev"
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - nest_network
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /usr/src/app/src
+        - action: sync+restart
+          path: ./prisma/schema.prisma
+          target: /usr/src/app/prisma/schema.prisma
+        - action: rebuild
+          path: package.json
 
 volumes:
-  pgdata:
+  postgres_data:
+
+networks:
+  nest_network:
+    driver: bridge
