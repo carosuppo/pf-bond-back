@@ -10,7 +10,8 @@ export class GroupController {
   @Post()
   async create(
     @Body() createGroupDto: CreateGroupDto,
+    userId: number,
   ): Promise<GroupResponseDto> {
-    return this.groupService.createGroup(createGroupDto);
+    return this.groupService.createGroup(createGroupDto, userId);
   }
 }

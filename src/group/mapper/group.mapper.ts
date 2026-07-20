@@ -1,13 +1,13 @@
-// src/group/mappers/group.mapper.ts
-import { Group, Prisma } from '@prisma/client';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { GroupResponseDto } from '../dto/group-response.dto';
+import { GroupEntity } from '../entity/group.entity';
+import { CreateGroupData } from '../interface/create-group.interface';
 
 export class GroupMapper {
   static toPersistence(
     dto: CreateGroupDto,
     invitationCode: string,
-  ): Prisma.GroupCreateInput {
+  ): CreateGroupData {
     return {
       name: dto.name,
       description: dto.description,
@@ -16,7 +16,7 @@ export class GroupMapper {
     };
   }
 
-  static toResponse(entity: Group): GroupResponseDto {
+  static toResponse(entity: GroupEntity): GroupResponseDto {
     return {
       name: entity.name,
       description: entity.description ?? null,

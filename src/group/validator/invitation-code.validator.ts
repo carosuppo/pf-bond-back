@@ -9,9 +9,9 @@ export class InvitationCodeValidator {
   ) {}
 
   async isAvailable(invitationCode: string): Promise<boolean> {
-    const group =
+    const existingGroup =
       await this.groupRepository.findByInvitationCode(invitationCode);
 
-    return !group;
+    return !existingGroup;
   }
 }
