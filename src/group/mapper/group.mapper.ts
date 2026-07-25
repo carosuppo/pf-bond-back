@@ -18,6 +18,7 @@ export class GroupMapper {
 
   static toResponse(entity: GroupEntity): GroupResponseDto {
     return {
+      id: entity.id.toString(),
       name: entity.name,
       description: entity.description ?? null,
       shareLocationMandatorily: entity.shareLocationMandatorily,
