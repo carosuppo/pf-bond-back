@@ -1,27 +1,28 @@
-// src/group/mappers/group.mapper.ts
-import { Group, Prisma } from '@prisma/client';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { GroupResponseDto } from '../dto/group-response.dto';
+import { GroupEntity } from '../entity/group.entity';
+import { CreateGroupData } from '../interface/create-group.interface';
 
 export class GroupMapper {
-  /**
-   * De Controlador (DTO) a Repositorio (Prisma)
-   */
-  static toPersistence(dto: CreateGroupDto): Prisma.GroupCreateInput {
+  static toPersistence(
+    dto: CreateGroupDto,
+    invitationCode: string,
+  ): CreateGroupData {
     return {
       name: dto.name,
-      shareLocationMandatorily: dto.shareLocationMandatorily ?? false,
+      description: dto.description,
+      shareLocationMandatorily: dto.shareLocationMandatorily,
+      invitationCode,
     };
   }
 
-  /**
-   * De Repositorio (Prisma) a Controlador (Response DTO)
-   */
-  static toResponse(entity: Group): GroupResponseDto {
+  static toResponse(entity: GroupEntity): GroupResponseDto {
     return {
-      id: entity.id,
+      id: entity.id.toString(),
       name: entity.name,
+      description: entity.description ?? null,
       shareLocationMandatorily: entity.shareLocationMandatorily,
+      invitationCode: entity.invitationCode,
     };
   }
 }

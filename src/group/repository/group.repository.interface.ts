@@ -1,6 +1,7 @@
-import { Group } from '@prisma/client';
-import { CreateGroupDto } from '../dto/create-group.dto';
+import { GroupEntity } from '../entity/group.entity';
+import { CreateGroupData } from '../interface/create-group.interface';
 
 export interface IGroupRepository {
-  create(dto: CreateGroupDto): Promise<Group>;
+  createGroup(data: CreateGroupData, userId: number): Promise<GroupEntity>;
+  findByInvitationCode(invitationCode: string): Promise<GroupEntity | null>;
 }

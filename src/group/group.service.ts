@@ -1,7 +1,7 @@
-// src/group/group.service.ts
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
+import { InvitationCodeHelper } from './helper/invitation-code.helper';
 import { GroupMapper } from './mapper/group.mapper';
 import type { IGroupRepository } from './repository/group.repository.interface';
 
@@ -10,16 +10,25 @@ export class GroupService {
   constructor(
     @Inject('groupRepository')
     private readonly groupRepository: IGroupRepository,
+    private readonly invitationCodeHelper: InvitationCodeHelper,
   ) {}
 
-  async createGroup(createGroupDto: CreateGroupDto): Promise<GroupResponseDto> {
-    // 1. Mapear DTO de entrada a datos de persistencia
-    const persistenceData = GroupMapper.toPersistence(createGroupDto);
+  async createGroup(
+    createGroupDto: CreateGroupDto,
+    userId: number,
+  ): Promise<GroupResponseDto> {
+    const invitationCode = await this.invitationCodeHelper.generate();
 
-    // 2. Guardar en la base de datos mediante el repositorio
-    const createdGroup = await this.groupRepository.create(persistenceData);
+    const persistenceData = GroupMapper.toPersistence(
+      createGroupDto,
+      invitationCode,
+    );
 
-    // 3. Mapear la entidad de la base de datos al DTO de salida
+    const createdGroup = await this.groupRepository.createGroup(
+      persistenceData,
+      userId,
+    );
+
     return GroupMapper.toResponse(createdGroup);
   }
 }
