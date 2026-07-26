@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MemberModule } from '../member/member.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { GroupController } from './group.controller';
 import { GroupService } from './group.service';
@@ -7,6 +8,7 @@ import { GroupPrismaRepository } from './repository/group.prisma.repository';
 import { InvitationCodeValidator } from './validator/invitation-code.validator';
 
 @Module({
+  imports: [MemberModule],
   controllers: [GroupController],
   providers: [
     GroupService,
