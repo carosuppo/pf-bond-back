@@ -1,6 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
+import { UpdateGroupDto } from './dto/update-group.dto';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
 import { GroupMapper } from './mapper/group.mapper';
 import type { IGroupRepository } from './repository/group.repository.interface';
@@ -19,16 +20,33 @@ export class GroupService {
   ): Promise<GroupResponseDto> {
     const invitationCode = await this.invitationCodeHelper.generate();
 
-    const persistenceData = GroupMapper.toPersistence(
+    const persistenceData = GroupMapper.toCreatePersistence(
       createGroupDto,
       invitationCode,
     );
 
-    const createdGroup = await this.groupRepository.createGroup(
+    const createdGroup = await this.groupRepository.create(
       persistenceData,
       userId,
     );
 
     return GroupMapper.toResponse(createdGroup);
+  }
+
+  async update(
+    id: number,
+    updateGroupDto: UpdateGroupDto,
+  ): Promise<GroupResponseDto> {
+    const group = await this.groupRepository.findById(id);
+
+    if (!group) {
+      throw new NotFoundException('El grupo no existe.');
+    }
+
+    const persistenceData = GroupMapper.toUpdatePersistence(updateGroupDto);
+
+    const updatedGroup = await this.groupRepository.update(id, persistenceData);
+
+    return GroupMapper.toResponse(updatedGroup);
   }
 }

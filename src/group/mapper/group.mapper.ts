@@ -1,10 +1,12 @@
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { GroupResponseDto } from '../dto/group-response.dto';
+import { UpdateGroupDto } from '../dto/update-group.dto';
 import { GroupEntity } from '../entity/group.entity';
 import { CreateGroupData } from '../interface/create-group.interface';
+import { UpdateGroupData } from '../interface/update-group.interface';
 
 export class GroupMapper {
-  static toPersistence(
+  static toCreatePersistence(
     dto: CreateGroupDto,
     invitationCode: string,
   ): CreateGroupData {
@@ -13,6 +15,14 @@ export class GroupMapper {
       description: dto.description,
       shareLocationMandatorily: dto.shareLocationMandatorily,
       invitationCode,
+    };
+  }
+
+  static toUpdatePersistence(dto: UpdateGroupDto): UpdateGroupData {
+    return {
+      name: dto.name,
+      description: dto.description,
+      shareLocationMandatorily: dto.shareLocationMandatorily,
     };
   }
 

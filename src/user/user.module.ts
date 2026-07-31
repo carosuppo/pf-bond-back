@@ -4,8 +4,8 @@ import { MailModule } from '../mail/mail.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionAuthGuard } from './guard/session-auth.guard';
 import { EmailVerificationTokenPrismaRepository } from './repository/email-verification-token.prisma.repository';
-import { UserPrismaRepository } from './repository/user.prisma.repository';
 import { UserSessionPrismaRepository } from './repository/user-session.prisma.repository';
+import { UserPrismaRepository } from './repository/user.prisma.repository';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -29,5 +29,6 @@ import { UserService } from './user.service';
       useClass: EmailVerificationTokenPrismaRepository,
     },
   ],
+  exports: [SessionAuthGuard, 'userSessionRepository'],
 })
 export class UserModule {}

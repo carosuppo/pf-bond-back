@@ -3,6 +3,7 @@ import { Group, RoleEnum } from '@prisma/client';
 import type { IMemberRepository } from '../../member/repository/member.repository.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateGroupData } from '../interface/create-group.interface';
+import { UpdateGroupData } from '../interface/update-group.interface';
 import { IGroupRepository } from './group.repository.interface';
 
 @Injectable()
@@ -13,7 +14,7 @@ export class GroupPrismaRepository implements IGroupRepository {
     private readonly memberRepository: IMemberRepository,
   ) {}
 
-  async createGroup(data: CreateGroupData, userId: number): Promise<Group> {
+  async create(data: CreateGroupData, userId: number): Promise<Group> {
     return this.prisma.$transaction(async (tx) => {
       const group = await tx.group.create({
         data: {
@@ -38,8 +39,21 @@ export class GroupPrismaRepository implements IGroupRepository {
   }
 
   async findByInvitationCode(invitationCode: string): Promise<Group | null> {
-    return this.prisma.group.findUnique({
+    return this.prisma.group.findFirst({
       where: { invitationCode },
+    });
+  }
+
+  async findById(id: number): Promise<Group | null> {
+    return this.prisma.group.findFirst({
+      where: { id, deletedAt: null },
+    });
+  }
+
+  async update(id: number, data: UpdateGroupData): Promise<Group> {
+    return this.prisma.group.update({
+      where: { id },
+      data,
     });
   }
 }
