@@ -1,4 +1,11 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { RoleEnum } from '@prisma/client';
+import type { IMemberRepository } from '../member/repository/member.repository.interface';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -12,6 +19,8 @@ export class GroupService {
     @Inject('groupRepository')
     private readonly groupRepository: IGroupRepository,
     private readonly invitationCodeHelper: InvitationCodeHelper,
+    @Inject('memberRepository')
+    private readonly memberRepository: IMemberRepository,
   ) {}
 
   async createGroup(
@@ -36,11 +45,24 @@ export class GroupService {
   async update(
     id: number,
     updateGroupDto: UpdateGroupDto,
+    userId: number,
   ): Promise<GroupResponseDto> {
     const group = await this.groupRepository.findById(id);
 
     if (!group) {
       throw new NotFoundException('El grupo no existe.');
+    }
+
+    const member = await this.memberRepository.findByUserAndGroup(userId, id);
+
+    if (!member) {
+      throw new ForbiddenException('No perteneces a este grupo.');
+    }
+
+    if (member.role !== RoleEnum.ADMIN) {
+      throw new ForbiddenException(
+        'Solo los administradores pueden modificar el grupo.',
+      );
     }
 
     const persistenceData = GroupMapper.toUpdatePersistence(updateGroupDto);

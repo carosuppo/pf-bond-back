@@ -14,7 +14,6 @@ import { UserModule } from './user/user.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    GroupModule,
     PrismaModule,
     UserModule,
   ],

@@ -20,4 +20,16 @@ export class MemberPrismaRepository implements IMemberRepository {
       },
     });
   }
+
+  async findByUserAndGroup(
+    userId: number,
+    groupId: number,
+  ): Promise<Member | null> {
+    return this.prismaService.member.findFirst({
+      where: {
+        userId,
+        groupId,
+      },
+    });
+  }
 }

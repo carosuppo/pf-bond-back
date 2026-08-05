@@ -6,4 +6,5 @@ export interface IMemberRepository {
     addMemberData: AddMemberData,
     tx?: Prisma.TransactionClient,
   ): Promise<Member>;
+  findByUserAndGroup(userId: number, groupId: number): Promise<Member | null>;
 }

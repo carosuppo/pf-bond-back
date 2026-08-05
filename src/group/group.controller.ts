@@ -7,8 +7,6 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { RoleEnum } from '@prisma/client';
-import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
@@ -23,15 +21,18 @@ export class GroupController {
 
   @Post()
   async create(
-    @Body() createGroupDto: CreateGroupDto,
-    @CurrentUser() userId: number,
+    @Body() dto: CreateGroupDto,
+    @CurrentUser() user: number,
   ): Promise<GroupResponseDto> {
-    return this.groupService.createGroup(createGroupDto, userId);
+    return this.groupService.createGroup(dto, user);
   }
 
-  @Roles(RoleEnum.ADMIN)
   @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateGroupDto) {
-    return this.groupService.update(id, dto);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateGroupDto,
+    @CurrentUser() user: number,
+  ): Promise<GroupResponseDto> {
+    return this.groupService.update(id, dto, user);
   }
 }

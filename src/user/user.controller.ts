@@ -27,6 +27,30 @@ import { UserService } from './user.service';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @Post('resend-verification-email')
+  @HttpCode(HttpStatus.OK)
+  async resendVerificationEmail(
+    @Body() resendVerificationEmailDto: ResendVerificationEmailDto,
+  ): Promise<MessageResponseDto> {
+    return this.userService.resendVerificationEmail(resendVerificationEmailDto);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(
+    @Body(NormalizeLoginUserPipe)
+    loginUserDto: LoginUserDto,
+  ): Promise<UserAuthResponseDto> {
+    return this.userService.login(loginUserDto);
+  }
+
+  @Post('logout')
+  @UseGuards(SessionAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logout(@Req() request: AuthenticatedRequest): Promise<void> {
+    await this.userService.logout(request.sessionId!);
+  }
+
   @Post()
   async create(
     @Body(NormalizeUserPipe) createUserDto: CreateUserDto,
@@ -51,33 +75,9 @@ export class UserController {
     return this.userService.verifyEmail(verifyEmailDto);
   }
 
-  @Post('resend-verification-email')
-  @HttpCode(HttpStatus.OK)
-  async resendVerificationEmail(
-    @Body() resendVerificationEmailDto: ResendVerificationEmailDto,
-  ): Promise<MessageResponseDto> {
-    return this.userService.resendVerificationEmail(resendVerificationEmailDto);
-  }
-
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  async login(
-    @Body(NormalizeLoginUserPipe)
-    loginUserDto: LoginUserDto,
-  ): Promise<UserAuthResponseDto> {
-    return this.userService.login(loginUserDto);
-  }
-
   @Get('me')
   @UseGuards(SessionAuthGuard)
   me(@Req() request: AuthenticatedRequest): UserResponseDto {
     return request.user!;
-  }
-
-  @Post('logout')
-  @UseGuards(SessionAuthGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Req() request: AuthenticatedRequest): Promise<void> {
-    await this.userService.logout(request.sessionId!);
   }
 }
