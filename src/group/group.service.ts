@@ -7,6 +7,7 @@ import {
 import { RoleEnum } from '@prisma/client';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { GetGroupsResponseDto } from './dto/get-groups-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
@@ -70,5 +71,21 @@ export class GroupService {
     const updatedGroup = await this.groupRepository.update(id, persistenceData);
 
     return GroupMapper.toResponse(updatedGroup);
+  }
+
+  async getOne(id: number): Promise<GroupResponseDto> {
+    const group = await this.groupRepository.findById(id);
+
+    if (!group) {
+      throw new NotFoundException('El grupo no existe.');
+    }
+
+    return GroupMapper.toResponse(group);
+  }
+
+  async getAll(userId: number): Promise<GetGroupsResponseDto[]> {
+    const groups = await this.groupRepository.findByUserId(userId);
+
+    return GroupMapper.toGroupsResponse(groups);
   }
 }

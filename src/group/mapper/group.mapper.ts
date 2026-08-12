@@ -1,4 +1,5 @@
 import { CreateGroupDto } from '../dto/create-group.dto';
+import { GetGroupsResponseDto } from '../dto/get-groups-response.dto';
 import { GroupResponseDto } from '../dto/group-response.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { GroupEntity } from '../entity/group.entity';
@@ -34,5 +35,9 @@ export class GroupMapper {
       shareLocationMandatorily: entity.shareLocationMandatorily,
       invitationCode: entity.invitationCode,
     };
+  }
+
+  static toGroupsResponse(entities: GroupEntity[]): GetGroupsResponseDto[] {
+    return entities.map((entity) => ({ id: entity.id, name: entity.name }));
   }
 }
