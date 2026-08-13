@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { GroupModule } from './group/group.module';
 import { MemberModule } from './member/member.module';
+import { LocationModule } from './location/location.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
 
@@ -11,6 +12,7 @@ import { UserModule } from './user/user.module';
   imports: [
     GroupModule,
     MemberModule,
+    LocationModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
