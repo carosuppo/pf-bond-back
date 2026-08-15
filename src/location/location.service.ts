@@ -4,12 +4,21 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
+
 import { CurrentLocationResponseDto } from './dto/current-location-response.dto';
+
+import { LocationHeartbeatResponseDto } from './dto/location-heartbeat-response.dto';
+
 import { LocationSharingResponseDto } from './dto/location-sharing-response.dto';
+
 import { MemberLocationResponseDto } from './dto/member-location-response.dto';
+
 import { UpdateCurrentLocationDto } from './dto/update-current-location.dto';
+
 import { SharingRecord } from './interface/location-record.interface';
+
 import { LocationEventService } from './location-event.service';
+
 import type { ILocationRepository } from './repository/location.repository.interface';
 
 @Injectable()
@@ -17,6 +26,7 @@ export class LocationService {
   constructor(
     @Inject('locationRepository')
     private readonly locationRepository: ILocationRepository,
+
     private readonly locationEventService: LocationEventService,
   ) {}
 
@@ -27,18 +37,22 @@ export class LocationService {
     const effectiveSharing = (
       await this.locationRepository.findSharingByUser(userId)
     ).filter((item) => this.isSharingEffective(item));
+
     if (effectiveSharing.length === 0) {
       throw new ForbiddenException(
         'No groups have effective location sharing enabled.',
       );
     }
+
     const location = await this.locationRepository.upsertCurrentLocation(
       userId,
       dto,
     );
+
     for (const item of effectiveSharing) {
       this.locationEventService.publish({
         event: 'memberLocationUpdated',
+
         data: {
           groupId: item.groupId,
           memberId: item.memberId,
@@ -48,19 +62,58 @@ export class LocationService {
         },
       });
     }
+
     return location;
   }
 
-  async getSharing(userId: number): Promise<LocationSharingResponseDto[]> {
-    return (await this.locationRepository.findSharingByUser(userId)).map(
-      (item) => ({
-        memberId: item.memberId,
-        groupId: item.groupId,
-        locationSharingEnabled: item.locationSharingEnabled,
-        shareLocationMandatorily: item.shareLocationMandatorily,
-        effectiveLocationSharing: this.isSharingEffective(item),
-      }),
+  async heartbeat(userId: number): Promise<LocationHeartbeatResponseDto> {
+    const effectiveSharing = (
+      await this.locationRepository.findSharingByUser(userId)
+    ).filter((item) => this.isSharingEffective(item));
+
+    if (effectiveSharing.length === 0) {
+      throw new ForbiddenException(
+        'No groups have effective location sharing enabled.',
+      );
+    }
+
+    const lastSeenAt = new Date();
+
+    const locationExists = await this.locationRepository.updateLastSeen(
+      userId,
+      lastSeenAt,
     );
+
+    if (locationExists) {
+      for (const item of effectiveSharing) {
+        this.locationEventService.publish({
+          event: 'memberLocationHeartbeat',
+
+          data: {
+            groupId: item.groupId,
+            memberId: item.memberId,
+            userId: item.userId,
+            lastSeenAt,
+          },
+        });
+      }
+    }
+
+    return {
+      lastSeenAt,
+    };
+  }
+
+  async getSharing(userId: number): Promise<LocationSharingResponseDto[]> {
+    const sharing = await this.locationRepository.findSharingByUser(userId);
+
+    return sharing.map((item) => ({
+      memberId: item.memberId,
+      groupId: item.groupId,
+      locationSharingEnabled: item.locationSharingEnabled,
+      shareLocationMandatorily: item.shareLocationMandatorily,
+      effectiveLocationSharing: this.isSharingEffective(item),
+    }));
   }
 
   async updateGroupSharing(
@@ -69,23 +122,32 @@ export class LocationService {
     enabled: boolean,
   ): Promise<LocationSharingResponseDto> {
     const sharing = await this.requireMembership(userId, groupId);
+
     if (sharing.shareLocationMandatorily && !enabled) {
       throw new ConflictException(
         'Location sharing is mandatory for this group.',
       );
     }
+
     await this.locationRepository.updateMemberSharing(
       sharing.memberId,
       enabled,
     );
+
     if (!enabled) {
       this.locationEventService.publish({
         event: 'memberLocationRemoved',
-        data: { groupId, memberId: sharing.memberId, userId },
+
+        data: {
+          groupId,
+          memberId: sharing.memberId,
+          userId,
+        },
       });
     } else if (sharing.currentLocation) {
       this.locationEventService.publish({
         event: 'memberLocationUpdated',
+
         data: {
           groupId,
           memberId: sharing.memberId,
@@ -95,11 +157,14 @@ export class LocationService {
         },
       });
     }
+
     return {
       memberId: sharing.memberId,
       groupId,
       locationSharingEnabled: enabled,
+
       shareLocationMandatorily: sharing.shareLocationMandatorily,
+
       effectiveLocationSharing: sharing.shareLocationMandatorily || enabled,
     };
   }
@@ -109,6 +174,7 @@ export class LocationService {
     groupId: number,
   ): Promise<MemberLocationResponseDto[]> {
     await this.requireMembership(userId, groupId);
+
     return (
       await this.locationRepository.findVisibleMembers(groupId, userId)
     ).map((member) => ({
@@ -131,8 +197,11 @@ export class LocationService {
       userId,
       groupId,
     );
-    if (!sharing)
-      throw new ForbiddenException('You do not belong to this group.');
+
+    if (!sharing) {
+      throw new ForbiddenException('No perteneces a este grupo.');
+    }
+
     return sharing;
   }
 

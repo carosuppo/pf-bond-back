@@ -147,6 +147,7 @@ model Location {
   longitude       Float
   accuracy        Float?
   capturedAt      DateTime?
+  lastSeenAt      DateTime?
   user            User?
   pointOfInterest PointOfInterest?
 

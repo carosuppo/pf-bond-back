@@ -10,6 +10,7 @@ export interface LocationRecord {
   longitude: number;
   accuracy: number | null;
   capturedAt: Date | null;
+  lastSeenAt: Date | null;
 }
 
 export interface SharingRecord {

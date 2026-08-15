@@ -7,4 +7,5 @@ export interface IGroupRepository {
   findByInvitationCode(invitationCode: string): Promise<GroupEntity | null>;
   update(id: number, updateGroupDto: UpdateGroupData): Promise<GroupEntity>;
   findById(id: number): Promise<GroupEntity | null>;
+  findByUserId(userId: number): Promise<GroupEntity[]>;
 }

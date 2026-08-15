@@ -21,34 +21,90 @@ export class LocationPrismaRepository implements ILocationRepository {
         where: { id: userId },
         select: { locationId: true },
       });
+
+      const now = new Date();
+
       const locationData = {
         latitude: data.latitude,
         longitude: data.longitude,
         accuracy: data.accuracy ?? null,
         capturedAt: data.capturedAt ?? null,
+        lastSeenAt: now,
       };
+
       if (user.locationId) {
         return transaction.location.update({
-          where: { id: user.locationId },
+          where: {
+            id: user.locationId,
+          },
           data: locationData,
         });
       }
+
       const location = await transaction.location.create({
         data: locationData,
       });
+
       await transaction.user.update({
-        where: { id: userId },
-        data: { locationId: location.id },
+        where: {
+          id: userId,
+        },
+        data: {
+          locationId: location.id,
+        },
       });
+
       return location;
     });
   }
 
+  async updateLastSeen(userId: number, lastSeenAt: Date): Promise<boolean> {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        locationId: true,
+      },
+    });
+
+    if (!user?.locationId) {
+      return false;
+    }
+
+    await this.prismaService.location.update({
+      where: {
+        id: user.locationId,
+      },
+      data: {
+        lastSeenAt,
+      },
+    });
+
+    return true;
+  }
+
   async findSharingByUser(userId: number): Promise<SharingRecord[]> {
     const members = await this.prismaService.member.findMany({
-      where: { userId, user: { deletedAt: null }, group: { deletedAt: null } },
-      include: { group: true, user: { include: { currentLocation: true } } },
+      where: {
+        userId,
+        user: {
+          deletedAt: null,
+        },
+        group: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        group: true,
+        user: {
+          include: {
+            currentLocation: true,
+          },
+        },
+      },
     });
+
     return members.map((member) => this.toSharingRecord(member));
   }
 
@@ -60,18 +116,34 @@ export class LocationPrismaRepository implements ILocationRepository {
       where: {
         userId,
         groupId,
-        user: { deletedAt: null },
-        group: { deletedAt: null },
+        user: {
+          deletedAt: null,
+        },
+        group: {
+          deletedAt: null,
+        },
       },
-      include: { group: true, user: { include: { currentLocation: true } } },
+      include: {
+        group: true,
+        user: {
+          include: {
+            currentLocation: true,
+          },
+        },
+      },
     });
+
     return member ? this.toSharingRecord(member) : null;
   }
 
   async updateMemberSharing(memberId: number, enabled: boolean): Promise<void> {
     await this.prismaService.member.update({
-      where: { id: memberId },
-      data: { locationSharingEnabled: enabled },
+      where: {
+        id: memberId,
+      },
+      data: {
+        locationSharingEnabled: enabled,
+      },
     });
   }
 
@@ -82,16 +154,38 @@ export class LocationPrismaRepository implements ILocationRepository {
     const members = await this.prismaService.member.findMany({
       where: {
         groupId,
-        userId: { not: excludedUserId },
-        user: { deletedAt: null, currentLocation: { isNot: null } },
-        group: { deletedAt: null },
+        userId: {
+          not: excludedUserId,
+        },
+        user: {
+          deletedAt: null,
+          currentLocation: {
+            isNot: null,
+          },
+        },
+        group: {
+          deletedAt: null,
+        },
         OR: [
-          { locationSharingEnabled: true },
-          { group: { shareLocationMandatorily: true } },
+          {
+            locationSharingEnabled: true,
+          },
+          {
+            group: {
+              shareLocationMandatorily: true,
+            },
+          },
         ],
       },
-      include: { user: { include: { currentLocation: true } } },
+      include: {
+        user: {
+          include: {
+            currentLocation: true,
+          },
+        },
+      },
     });
+
     return members.flatMap((member) =>
       member.user.currentLocation
         ? [
@@ -111,8 +205,15 @@ export class LocationPrismaRepository implements ILocationRepository {
     groupId: number;
     userId: number;
     locationSharingEnabled: boolean;
-    group: { shareLocationMandatorily: boolean };
-    user: { name: string; currentLocation: LocationRecord | null };
+
+    group: {
+      shareLocationMandatorily: boolean;
+    };
+
+    user: {
+      name: string;
+      currentLocation: LocationRecord | null;
+    };
   }): SharingRecord {
     return {
       memberId: member.id,

@@ -3,4 +3,5 @@ export class CurrentLocationResponseDto {
   longitude!: number;
   accuracy!: number | null;
   capturedAt!: Date | null;
+  lastSeenAt!: Date | null;
 }

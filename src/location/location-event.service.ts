@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
+
 import { Observable, Subject } from 'rxjs';
 
 export interface MemberLocationUpdatedEvent {
   event: 'memberLocationUpdated';
+
   data: {
     groupId: number;
     memberId: number;
@@ -12,21 +14,40 @@ export interface MemberLocationUpdatedEvent {
     longitude: number;
     accuracy: number | null;
     capturedAt: Date | null;
+    lastSeenAt: Date | null;
   };
 }
 
 export interface MemberLocationRemovedEvent {
   event: 'memberLocationRemoved';
-  data: { groupId: number; memberId: number; userId: number };
+
+  data: {
+    groupId: number;
+    memberId: number;
+    userId: number;
+  };
+}
+
+export interface MemberLocationHeartbeatEvent {
+  event: 'memberLocationHeartbeat';
+
+  data: {
+    groupId: number;
+    memberId: number;
+    userId: number;
+    lastSeenAt: Date;
+  };
 }
 
 export type LocationEvent =
   | MemberLocationUpdatedEvent
-  | MemberLocationRemovedEvent;
+  | MemberLocationRemovedEvent
+  | MemberLocationHeartbeatEvent;
 
 @Injectable()
 export class LocationEventService {
   private readonly eventSubject = new Subject<LocationEvent>();
+
   readonly events$: Observable<LocationEvent> =
     this.eventSubject.asObservable();
 

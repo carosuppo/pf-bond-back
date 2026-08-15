@@ -5,6 +5,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Get,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/user.decorator';
@@ -34,5 +35,10 @@ export class GroupController {
     @CurrentUser() user: number,
   ): Promise<GroupResponseDto> {
     return this.groupService.update(id, dto, user);
+  }
+
+  @Get()
+  findByUser(@CurrentUser() userId: number): Promise<GroupResponseDto[]> {
+    return this.groupService.findByUser(userId);
   }
 }

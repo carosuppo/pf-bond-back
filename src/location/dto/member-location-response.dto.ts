@@ -6,4 +6,5 @@ export class MemberLocationResponseDto {
   longitude!: number;
   accuracy!: number | null;
   capturedAt!: Date | null;
+  lastSeenAt!: Date | null;
 }

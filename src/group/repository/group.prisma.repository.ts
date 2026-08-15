@@ -56,4 +56,20 @@ export class GroupPrismaRepository implements IGroupRepository {
       data,
     });
   }
+
+  async findByUserId(userId: number): Promise<Group[]> {
+    return this.prisma.group.findMany({
+      where: {
+        deletedAt: null,
+        members: {
+          some: {
+            userId,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
 }

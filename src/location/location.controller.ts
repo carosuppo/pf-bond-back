@@ -7,13 +7,23 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+
 import { CurrentUser } from '../common/decorators/user.decorator';
+
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
+
 import { CurrentLocationResponseDto } from './dto/current-location-response.dto';
+
+import { LocationHeartbeatResponseDto } from './dto/location-heartbeat-response.dto';
+
 import { LocationSharingResponseDto } from './dto/location-sharing-response.dto';
+
 import { MemberLocationResponseDto } from './dto/member-location-response.dto';
+
 import { UpdateCurrentLocationDto } from './dto/update-current-location.dto';
+
 import { UpdateLocationSharingDto } from './dto/update-location-sharing.dto';
+
 import { LocationService } from './location.service';
 
 @UseGuards(SessionAuthGuard)
@@ -29,6 +39,13 @@ export class LocationController {
     return this.locationService.updateCurrentLocation(userId, dto);
   }
 
+  @Put('heartbeat')
+  heartbeat(
+    @CurrentUser() userId: number,
+  ): Promise<LocationHeartbeatResponseDto> {
+    return this.locationService.heartbeat(userId);
+  }
+
   @Get('sharing')
   getSharing(
     @CurrentUser() userId: number,
@@ -39,8 +56,12 @@ export class LocationController {
   @Put('group/:groupId/sharing')
   updateGroupSharing(
     @CurrentUser() userId: number,
-    @Param('groupId', ParseIntPipe) groupId: number,
-    @Body() dto: UpdateLocationSharingDto,
+
+    @Param('groupId', ParseIntPipe)
+    groupId: number,
+
+    @Body()
+    dto: UpdateLocationSharingDto,
   ): Promise<LocationSharingResponseDto> {
     return this.locationService.updateGroupSharing(
       userId,
@@ -52,7 +73,9 @@ export class LocationController {
   @Get('group/:groupId/members')
   getGroupMembers(
     @CurrentUser() userId: number,
-    @Param('groupId', ParseIntPipe) groupId: number,
+
+    @Param('groupId', ParseIntPipe)
+    groupId: number,
   ): Promise<MemberLocationResponseDto[]> {
     return this.locationService.getGroupMembers(userId, groupId);
   }

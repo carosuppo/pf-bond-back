@@ -71,4 +71,10 @@ export class GroupService {
 
     return GroupMapper.toResponse(updatedGroup);
   }
+
+  async findByUser(userId: number): Promise<GroupResponseDto[]> {
+    const groups = await this.groupRepository.findByUserId(userId);
+
+    return groups.map((group) => GroupMapper.toResponse(group));
+  }
 }

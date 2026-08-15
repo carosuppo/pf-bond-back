@@ -18,7 +18,9 @@ interface SocketMessage<T> {
   data: T;
 }
 
-@WebSocketGateway({ path: '/location/ws' })
+@WebSocketGateway({
+  path: '/location/ws',
+})
 export class LocationGateway
   implements
     OnGatewayConnection,
@@ -27,12 +29,16 @@ export class LocationGateway
     OnModuleDestroy
 {
   private readonly authenticatedUsers = new Map<WebSocket, number>();
+
   private readonly groupSubscriptions = new Map<number, Set<WebSocket>>();
+
   private eventSubscription?: Subscription;
 
   constructor(
     private readonly sessionAuthenticationService: SessionAuthenticationService,
+
     private readonly locationService: LocationService,
+
     private readonly locationEventService: LocationEventService,
   ) {}
 
@@ -47,14 +53,21 @@ export class LocationGateway
   }
 
   handleConnection(client: WebSocket): void {
-    this.send(client, { event: 'connected', data: {} });
+    this.send(client, {
+      event: 'connected',
+      data: {},
+    });
   }
 
   handleDisconnect(client: WebSocket): void {
     this.authenticatedUsers.delete(client);
+
     for (const [groupId, clients] of this.groupSubscriptions) {
       clients.delete(client);
-      if (clients.size === 0) this.groupSubscriptions.delete(groupId);
+
+      if (clients.size === 0) {
+        this.groupSubscriptions.delete(groupId);
+      }
     }
   }
 
@@ -66,13 +79,22 @@ export class LocationGateway
     try {
       const authentication =
         await this.sessionAuthenticationService.authenticate(data.sessionToken);
+
       this.authenticatedUsers.set(client, authentication.user.id);
-      this.send(client, { event: 'authenticated', data: {} });
+
+      this.send(client, {
+        event: 'authenticated',
+        data: {},
+      });
     } catch {
       this.send(client, {
         event: 'authenticationFailed',
-        data: { message: 'Invalid session.' },
+
+        data: {
+          message: 'Invalid session.',
+        },
       });
+
       client.close(1008, 'Unauthorized');
     }
   }
@@ -83,26 +105,40 @@ export class LocationGateway
     data: SubscribeGroupDto,
   ): Promise<void> {
     const userId = this.authenticatedUsers.get(client);
+
     if (!userId) {
       this.send(client, {
         event: 'subscriptionFailed',
-        data: { message: 'Connection is not authenticated.' },
+
+        data: {
+          message: 'Connection is not authenticated.',
+        },
       });
+
       return;
     }
+
     try {
       await this.locationService.verifyGroupMembership(userId, data.groupId);
+
       const clients =
         this.groupSubscriptions.get(data.groupId) ?? new Set<WebSocket>();
+
       clients.add(client);
+
       this.groupSubscriptions.set(data.groupId, clients);
+
       this.send(client, {
         event: 'groupSubscribed',
-        data: { groupId: data.groupId },
+
+        data: {
+          groupId: data.groupId,
+        },
       });
     } catch {
       this.send(client, {
         event: 'subscriptionFailed',
+
         data: {
           groupId: data.groupId,
           message: 'You do not belong to this group.',
@@ -113,9 +149,23 @@ export class LocationGateway
 
   private broadcast(event: LocationEvent): void {
     const clients = this.groupSubscriptions.get(event.data.groupId);
-    if (!clients) return;
+
+    if (!clients) {
+      return;
+    }
+
     for (const client of clients) {
-      if (client.readyState === WebSocket.OPEN) this.send(client, event);
+      const authenticatedUserId = this.authenticatedUsers.get(client);
+
+      // Nunca devolverle al usuario
+      // sus propios eventos.
+      if (authenticatedUserId === event.data.userId) {
+        continue;
+      }
+
+      if (client.readyState === WebSocket.OPEN) {
+        this.send(client, event);
+      }
     }
   }
 
