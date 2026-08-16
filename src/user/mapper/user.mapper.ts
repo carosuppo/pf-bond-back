@@ -1,8 +1,10 @@
 import { User } from '@prisma/client';
 import { CreateUserDto } from '../dto/create-user.dto';
+import { UpdateUserDto } from '../dto/update-user.dto';
 import { UserAuthResponseDto } from '../dto/user-auth-response.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { CreateUserData } from '../interface/create-user.interface';
+import { UpdateUserData } from '../interface/update-user.interface';
 import { SessionTokenData } from './user-session.mapper';
 
 export class UserMapper {
@@ -15,6 +17,20 @@ export class UserMapper {
       email: createUserDto.email,
       passwordHash,
     };
+  }
+
+  static toUpdateData(updateUserDto: UpdateUserDto): UpdateUserData {
+    const data: UpdateUserData = {};
+
+    if (updateUserDto.name !== undefined) {
+      data.name = updateUserDto.name;
+    }
+
+    if (updateUserDto.email !== undefined) {
+      data.email = updateUserDto.email;
+    }
+
+    return data;
   }
 
   static toResponseDto(user: User): UserResponseDto {

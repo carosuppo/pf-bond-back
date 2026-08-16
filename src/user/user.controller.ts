@@ -5,21 +5,25 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../common/decorators/user.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import { ResendVerificationEmailDto } from './dto/resend-verification-email.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UserAuthResponseDto } from './dto/user-auth-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { SessionAuthGuard } from './guard/session-auth.guard';
 import type { AuthenticatedRequest } from './interface/authenticated-request.interface';
 import { NormalizeLoginUserPipe } from './pipe/normalize-login-user.pipe';
+import { NormalizeUpdateUserPipe } from './pipe/normalize-update-user.pipe';
 import { NormalizeUserPipe } from './pipe/normalize-user.pipe';
 import { UserService } from './user.service';
 
@@ -79,5 +83,14 @@ export class UserController {
   @UseGuards(SessionAuthGuard)
   me(@Req() request: AuthenticatedRequest): UserResponseDto {
     return request.user!;
+  }
+
+  @Patch('me')
+  @UseGuards(SessionAuthGuard)
+  async updateMe(
+    @Body(NormalizeUpdateUserPipe) updateUserDto: UpdateUserDto,
+    @CurrentUser() userId: number,
+  ): Promise<UserResponseDto> {
+    return await this.userService.update(userId, updateUserDto);
   }
 }

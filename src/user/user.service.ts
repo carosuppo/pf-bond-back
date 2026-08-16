@@ -16,6 +16,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import { ResendVerificationEmailDto } from './dto/resend-verification-email.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UserAuthResponseDto } from './dto/user-auth-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
@@ -145,6 +146,39 @@ export class UserService {
     }
 
     return UserMapper.toResponseDto(user);
+  }
+
+  async update(
+    userId: number,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    const updateUserData = UserMapper.toUpdateData(updateUserDto);
+
+    if (
+      updateUserData.name === undefined &&
+      updateUserData.email === undefined
+    ) {
+      throw new BadRequestException(
+        'Debes enviar al menos un campo para actualizar.',
+      );
+    }
+
+    if (updateUserData.email !== undefined) {
+      const existingUser = await this.userRepository.findByEmail(
+        updateUserData.email,
+      );
+
+      if (existingUser && existingUser.id !== userId) {
+        throw new ConflictException('El mail ingresado ya está en uso.');
+      }
+    }
+
+    const updatedUser = await this.userRepository.update(
+      userId,
+      updateUserData,
+    );
+
+    return UserMapper.toResponseDto(updatedUser);
   }
 
   async login(loginUserDto: LoginUserDto): Promise<UserAuthResponseDto> {
