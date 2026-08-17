@@ -8,11 +8,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/user.decorator';
+import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
+import { JoinGroupDto } from './dto/join-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupService } from './group.service';
+import { NormalizeInvitationCodePipe } from './pipe/normalize-invitation-code.pipe';
 
 @UseGuards(SessionAuthGuard)
 @Controller('group')
@@ -25,6 +28,14 @@ export class GroupController {
     @CurrentUser() user: number,
   ): Promise<GroupResponseDto> {
     return this.groupService.createGroup(dto, user);
+  }
+
+  @Post('join')
+  async join(
+    @Body(NormalizeInvitationCodePipe) dto: JoinGroupDto,
+    @CurrentUser() user: number,
+  ): Promise<MessageResponseDto> {
+    return await this.groupService.join(dto, user);
   }
 
   @Put(':id')

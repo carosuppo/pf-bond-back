@@ -12,6 +12,29 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg(url),
 });
 
+// Mismo set de caracteres que InvitationCodeHelper (sin ambiguos: I, O, 1 y 0)
+const INVITATION_CODE_CHARACTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function createRandomInvitationCode(length = 6): string {
+  return Array.from(
+    { length },
+    () =>
+      INVITATION_CODE_CHARACTERS[
+        Math.floor(Math.random() * INVITATION_CODE_CHARACTERS.length)
+      ],
+  ).join('');
+}
+
+async function generateInvitationCode(): Promise<string> {
+  let invitationCode: string;
+
+  do {
+    invitationCode = createRandomInvitationCode();
+  } while (await prisma.group.findFirst({ where: { invitationCode } }));
+
+  return invitationCode;
+}
+
 async function main() {
   // --- Usuarios ---
   const usersData = [
@@ -66,7 +89,7 @@ async function main() {
   ];
 
   for (const g of groupsData) {
-    const invitationCode = `${g.name.replace(/\s+/g, '-').toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`;
+    const invitationCode = await generateInvitationCode();
 
     const group = await prisma.group.create({
       data: {
