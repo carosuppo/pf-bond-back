@@ -1,5 +1,5 @@
 export class GroupResponseDto {
-  id!: string;
+  id!: number;
   name!: string;
   description?: string | null;
   shareLocationMandatorily!: boolean;

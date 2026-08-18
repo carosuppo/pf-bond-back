@@ -10,6 +10,8 @@ import { RoleEnum } from '@prisma/client';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
 import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { GetGroupResponseDto } from './dto/get-group-response.dto';
+import { GetGroupsResponseDto } from './dto/get-groups-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -74,6 +76,28 @@ export class GroupService {
     const updatedGroup = await this.groupRepository.update(id, persistenceData);
 
     return GroupMapper.toResponse(updatedGroup);
+  }
+
+  async getOne(id: number, userId: number): Promise<GetGroupResponseDto> {
+    const group = await this.groupRepository.findGroupWithMembers(id);
+
+    if (!group) {
+      throw new NotFoundException('El grupo no existe.');
+    }
+
+    const member = await this.memberRepository.findByUserAndGroup(userId, id);
+
+    if (!member) {
+      throw new ForbiddenException('No perteneces a este grupo.');
+    }
+
+    return GroupMapper.toGetGroupResponse(group);
+  }
+
+  async getAll(userId: number): Promise<GetGroupsResponseDto[]> {
+    const groups = await this.groupRepository.findByUserId(userId);
+
+    return GroupMapper.toGroupsResponse(groups);
   }
 
   async join(
