@@ -21,6 +21,11 @@ async function main() {
       password: 'password123',
     },
     { name: 'prueba', email: 'prueba@gmail.com', password: 'prueba123' },
+    {
+      name: 'prueba sin grupos',
+      email: 'singrupos@gmail.com',
+      password: 'prueba123',
+    },
   ];
 
   const users: Record<string, { id: number }> = {};
@@ -98,6 +103,6 @@ main()
     await prisma.$disconnect();
   });
 
-//npx prisma db seed
+// npx prisma db seed
 
 // Para ver la BD: docker exec -it bond-back npx prisma studio --port 5555 --browser none
