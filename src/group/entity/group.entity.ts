@@ -4,4 +4,5 @@ export interface GroupEntity {
   description?: string | null;
   shareLocationMandatorily: boolean;
   invitationCode: string;
+  deletedAt: Date | null;
 }

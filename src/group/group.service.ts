@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -6,8 +8,10 @@ import {
 } from '@nestjs/common';
 import { RoleEnum } from '@prisma/client';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
+import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
+import { JoinGroupDto } from './dto/join-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
 import { GroupMapper } from './mapper/group.mapper';
@@ -70,5 +74,39 @@ export class GroupService {
     const updatedGroup = await this.groupRepository.update(id, persistenceData);
 
     return GroupMapper.toResponse(updatedGroup);
+  }
+
+  async join(
+    joinGroupDto: JoinGroupDto,
+    userId: number,
+  ): Promise<MessageResponseDto> {
+    const group = await this.groupRepository.findByInvitationCode(
+      joinGroupDto.invitationCode,
+    );
+
+    if (!group || group.deletedAt) {
+      throw new BadRequestException(
+        'El código de invitación es inválido o no corresponde a ningún grupo vigente.',
+      );
+    }
+
+    const existingMember = await this.memberRepository.findByUserAndGroup(
+      userId,
+      group.id,
+    );
+
+    if (existingMember) {
+      throw new ConflictException('Ya eres miembro de este grupo.');
+    }
+
+    await this.memberRepository.addMember({
+      groupId: group.id,
+      userId,
+      role: RoleEnum.MEMBER,
+    });
+
+    return {
+      message: 'Ingresaste al grupo correctamente.',
+    };
   }
 }
