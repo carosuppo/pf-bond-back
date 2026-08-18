@@ -1,59 +1,29 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { createHash } from 'crypto';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthenticatedRequest } from '../interface/authenticated-request.interface';
-import { UserMapper } from '../mapper/user.mapper';
-import type { IUserSessionRepository } from '../repository/user-session.repository.interface';
+import { SessionAuthenticationService } from '../service/session-authentication.service';
 
 @Injectable()
 export class SessionAuthGuard implements CanActivate {
   constructor(
-    @Inject('userSessionRepository')
-    private readonly userSessionRepository: IUserSessionRepository,
+    private readonly sessionAuthenticationService: SessionAuthenticationService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const authentication = await this.sessionAuthenticationService.authenticate(
+      this.extractBearerToken(request.headers.authorization),
+    );
 
-    const sessionToken = this.extractBearerToken(request.headers.authorization);
-
-    if (!sessionToken) {
-      throw new UnauthorizedException('Sesión no válida.');
-    }
-
-    const tokenHash = createHash('sha256').update(sessionToken).digest('hex');
-
-    const session =
-      await this.userSessionRepository.findActiveByTokenHash(tokenHash);
-
-    if (!session || session.user.deletedAt) {
-      throw new UnauthorizedException('Sesión no válida.');
-    }
-
-    request.user = UserMapper.toResponseDto(session.user);
-    request.sessionId = session.id;
-
+    request.user = authentication.user;
+    request.sessionId = authentication.sessionId;
     return true;
   }
 
   private extractBearerToken(
     authorizationHeader: string | undefined,
   ): string | null {
-    if (!authorizationHeader) {
-      return null;
-    }
-
+    if (!authorizationHeader) return null;
     const [type, token] = authorizationHeader.split(' ');
-
-    if (type !== 'Bearer' || !token) {
-      return null;
-    }
-
-    return token;
+    return type === 'Bearer' && token ? token : null;
   }
 }

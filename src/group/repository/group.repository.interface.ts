@@ -9,5 +9,6 @@ export interface IGroupRepository {
   findById(id: number): Promise<GroupEntity | null>;
   findGroupWithMembers(id: number): Promise<GetGroupEntity | null>;
   update(id: number, updateGroupDto: UpdateGroupData): Promise<GroupEntity>;
+  findById(id: number): Promise<GroupEntity | null>;
   findByUserId(userId: number): Promise<GroupEntity[]>;
 }

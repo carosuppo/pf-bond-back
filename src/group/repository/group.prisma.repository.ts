@@ -112,6 +112,9 @@ export class GroupPrismaRepository implements IGroupRepository {
           },
         },
       },
+      orderBy: {
+        name: 'asc',
+      },
     });
   }
 }
