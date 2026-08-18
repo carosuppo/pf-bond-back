@@ -6,7 +6,6 @@ import {
   ParseIntPipe,
   Post,
   Put,
-  Get,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/user.decorator';
@@ -14,7 +13,6 @@ import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GetGroupResponseDto } from './dto/get-group-response.dto';
-import { GetGroupsResponseDto } from './dto/get-groups-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -60,12 +58,7 @@ export class GroupController {
   }
 
   @Get()
-  async getAll(@CurrentUser() userId: number): Promise<GetGroupsResponseDto[]> {
+  getAll(@CurrentUser() userId: number): Promise<GroupResponseDto[]> {
     return this.groupService.getAll(userId);
-  }
-
-  @Get()
-  findByUser(@CurrentUser() userId: number): Promise<GroupResponseDto[]> {
-    return this.groupService.findByUser(userId);
   }
 }

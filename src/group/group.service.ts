@@ -11,7 +11,6 @@ import type { IMemberRepository } from '../member/repository/member.repository.i
 import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GetGroupResponseDto } from './dto/get-group-response.dto';
-import { GetGroupsResponseDto } from './dto/get-groups-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -78,7 +77,7 @@ export class GroupService {
     return GroupMapper.toResponse(updatedGroup);
   }
 
-  async findByUser(userId: number): Promise<GroupResponseDto[]> {
+  async getAll(userId: number): Promise<GroupResponseDto[]> {
     const groups = await this.groupRepository.findByUserId(userId);
 
     return groups.map((group) => GroupMapper.toResponse(group));
@@ -98,12 +97,6 @@ export class GroupService {
     }
 
     return GroupMapper.toGetGroupResponse(group);
-  }
-
-  async getAll(userId: number): Promise<GetGroupsResponseDto[]> {
-    const groups = await this.groupRepository.findByUserId(userId);
-
-    return GroupMapper.toGroupsResponse(groups);
   }
 
   async join(
