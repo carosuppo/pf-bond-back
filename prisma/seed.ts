@@ -1,4 +1,3 @@
-// prisma/seed.ts
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, RoleEnum } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -12,7 +11,6 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg(url),
 });
 
-// Mismo set de caracteres que InvitationCodeHelper (sin ambiguos: I, O, 1 y 0)
 const INVITATION_CODE_CHARACTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function createRandomInvitationCode(length = 6): string {
@@ -36,7 +34,6 @@ async function generateInvitationCode(): Promise<string> {
 }
 
 async function main() {
-  // --- Usuarios ---
   const usersData = [
     {
       name: 'Thomas',
@@ -44,6 +41,7 @@ async function main() {
       password: 'password123',
     },
     { name: 'prueba', email: 'prueba@gmail.com', password: 'prueba123' },
+    { name: 'prueba 2', email: 'prueba2@gmail.com', password: 'prueba123' },
     {
       name: 'prueba sin grupos',
       email: 'singrupos@gmail.com',
@@ -62,7 +60,7 @@ async function main() {
         name: u.name,
         email: u.email,
         passwordHash,
-        emailVerifiedAt: new Date(), // usuario ya verificado
+        emailVerifiedAt: new Date(),
       },
     });
     users[u.email] = user;
@@ -70,8 +68,8 @@ async function main() {
 
   const thomas = users['musicmanzana@gmail.com'];
   const prueba = users['prueba@gmail.com'];
+  const prueba2 = users['prueba2@gmail.com'];
 
-  // --- Grupos ---
   const groupsData = [
     {
       name: 'grupo1',
@@ -109,9 +107,19 @@ async function main() {
       data: {
         userId: g.creatorId,
         groupId: group.id,
-        role: RoleEnum.ADMIN, // ajustar si el enum tiene otro nombre
+        role: RoleEnum.ADMIN,
       },
     });
+
+    if (g.creatorId === prueba.id) {
+      await prisma.member.create({
+        data: {
+          userId: prueba2.id,
+          groupId: group.id,
+          role: RoleEnum.MEMBER,
+        },
+      });
+    }
   }
 
   console.log('Seed completado');
