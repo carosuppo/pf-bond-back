@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { UserProfileGroupEntity } from '../entity/user-profile.entity';
 import { CreateUserData } from '../interface/create-user.interface';
 import { UpdateUserData } from '../interface/update-user.interface';
 import type { IUserRepository } from './user.repository.interface';
@@ -48,6 +49,38 @@ export class UserPrismaRepository implements IUserRepository {
         emailVerifiedAt: new Date(),
       },
     });
+  }
+
+  async findById(userId: number): Promise<User | null> {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+    });
+  }
+
+  async findGroupsByUserId(userId: number): Promise<UserProfileGroupEntity[]> {
+    const members = await this.prismaService.member.findMany({
+      where: {
+        userId,
+        group: {
+          deletedAt: null,
+        },
+      },
+      select: {
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return members
+      .map((member) => ({ id: member.group.id, name: member.group.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async update(userId: number, updateUserData: UpdateUserData): Promise<User> {

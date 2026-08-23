@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { MailService } from '../mail/mail.service';
@@ -121,5 +125,83 @@ describe('UserService.update', () => {
       name: 'Nuevo',
       email: 'usuario@mail.com',
     });
+  });
+});
+
+describe('UserService.getProfile', () => {
+  const buildUser = (overrides: Partial<User> = {}): User => ({
+    id: 1,
+    name: 'Nombre',
+    email: 'usuario@mail.com',
+    passwordHash: 'hash',
+    locationId: null,
+    emailVerifiedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+    ...overrides,
+  });
+
+  const createService = (
+    userRepository: Partial<IUserRepository>,
+  ): UserService =>
+    new UserService(
+      userRepository as unknown as IUserRepository,
+      {} as unknown as IUserSessionRepository,
+      {} as unknown as IEmailVerificationTokenRepository,
+      {} as unknown as MailService,
+      {} as unknown as ConfigService,
+    );
+
+  it('devuelve nombre, correo y listado de grupos del usuario', async () => {
+    const user = buildUser();
+    const groups = [
+      { id: 2, name: 'Amigos' },
+      { id: 3, name: 'Familia' },
+    ];
+
+    const userRepository: Partial<IUserRepository> = {
+      findById: jest.fn().mockResolvedValue(user),
+      findGroupsByUserId: jest.fn().mockResolvedValue(groups),
+    };
+
+    const service = createService(userRepository);
+
+    const result = await service.getProfile(1);
+
+    expect(userRepository.findById).toHaveBeenCalledWith(1);
+    expect(userRepository.findGroupsByUserId).toHaveBeenCalledWith(1);
+    expect(result).toEqual({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      profilePhoto: null,
+      groups,
+    });
+  });
+
+  it('devuelve una lista de grupos vacía cuando no pertenece a ningún grupo', async () => {
+    const userRepository: Partial<IUserRepository> = {
+      findById: jest.fn().mockResolvedValue(buildUser()),
+      findGroupsByUserId: jest.fn().mockResolvedValue([]),
+    };
+
+    const service = createService(userRepository);
+
+    const result = await service.getProfile(1);
+
+    expect(result.name).toBe('Nombre');
+    expect(result.email).toBe('usuario@mail.com');
+    expect(result.groups).toEqual([]);
+  });
+
+  it('lanza NotFoundException cuando el usuario no existe', async () => {
+    const userRepository: Partial<IUserRepository> = {
+      findById: jest.fn().mockResolvedValue(null),
+    };
+
+    const service = createService(userRepository);
+
+    await expect(service.getProfile(1)).rejects.toThrow(NotFoundException);
   });
 });

@@ -57,6 +57,10 @@ describe('GroupService', () => {
       expect(groupRepositoryMock.findByInvitationCode).toHaveBeenCalledWith(
         'ABC123',
       );
+      expect(memberRepositoryMock.findByUserAndGroup).toHaveBeenCalledWith(
+        7,
+        1,
+      );
       expect(memberRepositoryMock.addMember).toHaveBeenCalledWith({
         groupId: 1,
         userId: 7,
@@ -70,9 +74,12 @@ describe('GroupService', () => {
     it('falla si el código no existe', async () => {
       groupRepositoryMock.findByInvitationCode.mockResolvedValue(null);
 
-      await expect(
-        service.join({ invitationCode: 'ZZZ999' }, 7),
-      ).rejects.toThrow(BadRequestException);
+      const joinAttempt = service.join({ invitationCode: 'ZZZ999' }, 7);
+
+      await expect(joinAttempt).rejects.toThrow(BadRequestException);
+      await expect(joinAttempt).rejects.toThrow(
+        'El código de invitación es inválido o no corresponde a ningún grupo vigente.',
+      );
 
       expect(memberRepositoryMock.addMember).not.toHaveBeenCalled();
     });
@@ -83,9 +90,12 @@ describe('GroupService', () => {
         deletedAt: new Date(),
       });
 
-      await expect(
-        service.join({ invitationCode: 'ABC123' }, 7),
-      ).rejects.toThrow(BadRequestException);
+      const joinAttempt = service.join({ invitationCode: 'ABC123' }, 7);
+
+      await expect(joinAttempt).rejects.toThrow(BadRequestException);
+      await expect(joinAttempt).rejects.toThrow(
+        'El código de invitación es inválido o no corresponde a ningún grupo vigente.',
+      );
 
       expect(memberRepositoryMock.addMember).not.toHaveBeenCalled();
     });
@@ -94,9 +104,12 @@ describe('GroupService', () => {
       groupRepositoryMock.findByInvitationCode.mockResolvedValue(activeGroup);
       memberRepositoryMock.findByUserAndGroup.mockResolvedValue({ id: 10 });
 
-      await expect(
-        service.join({ invitationCode: 'ABC123' }, 7),
-      ).rejects.toThrow(ConflictException);
+      const joinAttempt = service.join({ invitationCode: 'ABC123' }, 7);
+
+      await expect(joinAttempt).rejects.toThrow(ConflictException);
+      await expect(joinAttempt).rejects.toThrow(
+        'Ya eres miembro de este grupo.',
+      );
 
       expect(memberRepositoryMock.addMember).not.toHaveBeenCalled();
     });

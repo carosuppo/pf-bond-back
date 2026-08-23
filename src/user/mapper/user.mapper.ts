@@ -2,7 +2,9 @@ import { User } from '@prisma/client';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { UserAuthResponseDto } from '../dto/user-auth-response.dto';
+import { UserProfileResponseDto } from '../dto/user-profile-response.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
+import { UserProfileGroupEntity } from '../entity/user-profile.entity';
 import { CreateUserData } from '../interface/create-user.interface';
 import { UpdateUserData } from '../interface/update-user.interface';
 import { SessionTokenData } from './user-session.mapper';
@@ -52,6 +54,21 @@ export class UserMapper {
       sessionToken: session.sessionToken,
       expiresAt: session.expiresAt,
       user: this.toResponseDto(user),
+    };
+  }
+
+  static toProfileResponseDto(
+    user: User,
+    groups: UserProfileGroupEntity[],
+  ): UserProfileResponseDto {
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      groups: groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+      })),
     };
   }
 }

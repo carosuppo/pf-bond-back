@@ -18,6 +18,7 @@ import { MessageResponseDto } from './dto/message-response.dto';
 import { ResendVerificationEmailDto } from './dto/resend-verification-email.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserAuthResponseDto } from './dto/user-auth-response.dto';
+import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { SessionAuthGuard } from './guard/session-auth.guard';
@@ -83,6 +84,14 @@ export class UserController {
   @UseGuards(SessionAuthGuard)
   me(@Req() request: AuthenticatedRequest): UserResponseDto {
     return request.user!;
+  }
+
+  @Get('profile')
+  @UseGuards(SessionAuthGuard)
+  async getProfile(
+    @CurrentUser() userId: number,
+  ): Promise<UserProfileResponseDto> {
+    return this.userService.getProfile(userId);
   }
 
   @Patch('me')
