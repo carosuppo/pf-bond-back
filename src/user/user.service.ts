@@ -18,7 +18,6 @@ import { MessageResponseDto } from './dto/message-response.dto';
 import { ResendVerificationEmailDto } from './dto/resend-verification-email.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserAuthResponseDto } from './dto/user-auth-response.dto';
-import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import {
@@ -149,7 +148,7 @@ export class UserService {
     return UserMapper.toResponseDto(user);
   }
 
-  async getProfile(userId: number): Promise<UserProfileResponseDto> {
+  async getProfile(userId: number): Promise<UserResponseDto> {
     const user = await this.userRepository.findById(userId);
 
     if (!user) {
