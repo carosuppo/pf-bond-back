@@ -39,6 +39,15 @@ export class UserPrismaRepository implements IUserRepository {
     });
   }
 
+  async findById(userId: number): Promise<User | null> {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+    });
+  }
+
   async markEmailAsVerified(userId: number): Promise<User> {
     return this.prismaService.user.update({
       where: {
@@ -56,6 +65,17 @@ export class UserPrismaRepository implements IUserRepository {
         id: userId,
       },
       data: updateUserData,
+    });
+  }
+
+  async updatePassword(userId: number, passwordHash: string): Promise<User> {
+    return this.prismaService.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        passwordHash,
+      },
     });
   }
 }

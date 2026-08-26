@@ -9,7 +9,11 @@ export interface IUserRepository {
 
   findByEmail(email: string): Promise<User | null>;
 
+  findById(userId: number): Promise<User | null>;
+
   markEmailAsVerified(userId: number): Promise<User>;
 
   update(userId: number, updateUserData: UpdateUserData): Promise<User>;
+
+  updatePassword(userId: number, passwordHash: string): Promise<User>;
 }

@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/user.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
@@ -83,6 +84,16 @@ export class UserController {
   @UseGuards(SessionAuthGuard)
   me(@Req() request: AuthenticatedRequest): UserResponseDto {
     return request.user!;
+  }
+
+  @Patch('password')
+  @UseGuards(SessionAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @Body() changePasswordDto: ChangePasswordDto,
+    @CurrentUser() userId: number,
+  ): Promise<MessageResponseDto> {
+    return await this.userService.changePassword(userId, changePasswordDto);
   }
 
   @Patch('me')
