@@ -7,4 +7,5 @@ export interface IMemberRepository {
     tx?: Prisma.TransactionClient,
   ): Promise<Member>;
   findByUserAndGroup(userId: number, groupId: number): Promise<Member | null>;
+  getMembersByIds(memberIds: number[], groupId: number): Promise<number[]>;
 }

@@ -1,7 +1,8 @@
 import { RoleEnum } from '@prisma/client';
 
 export interface GetMemberEntity {
-  idUser: number;
+  id: number;
   name: string;
   role: RoleEnum;
+  idUser: number;
 }
