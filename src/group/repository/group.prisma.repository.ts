@@ -65,6 +65,7 @@ export class GroupPrismaRepository implements IGroupRepository {
         invitationCode: true,
         members: {
           select: {
+            id: true,
             role: true,
             user: {
               select: {
@@ -88,6 +89,7 @@ export class GroupPrismaRepository implements IGroupRepository {
       shareLocationMandatorily: group.shareLocationMandatorily,
       invitationCode: group.invitationCode,
       members: group.members.map((member) => ({
+        id: member.id,
         idUser: member.user.id,
         name: member.user.name,
         role: member.role,

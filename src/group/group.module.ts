@@ -21,5 +21,6 @@ import { InvitationCodeValidator } from './validator/invitation-code.validator';
       useClass: GroupPrismaRepository,
     },
   ],
+  exports: ['groupRepository'],
 })
 export class GroupModule {}
