@@ -88,7 +88,7 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - LocationService
       },
     ]);
 
-    expect(repository.findVisibleMembers).toHaveBeenCalledWith(20, 1);
+    expect(repository.findVisibleMembers.mock.calls).toEqual([[20, 1]]);
   });
 
   it('devuelve una lista vacía si ningún miembro comparte ubicación', async () => {
@@ -107,6 +107,6 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - LocationService
       ForbiddenException,
     );
 
-    expect(repository.findVisibleMembers).not.toHaveBeenCalled();
+    expect(repository.findVisibleMembers.mock.calls).toHaveLength(0);
   });
 });

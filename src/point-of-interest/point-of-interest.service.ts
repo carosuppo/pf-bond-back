@@ -4,9 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import type { IGroupRepository } from '../group/repository/group.repository.interface';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
+import {
+  POINT_OF_INTEREST_CREATED_EVENT,
+  PointOfInterestCreatedEvent,
+} from '../notification/events/point-of-interest-created.event';
 import { CreatePointOfInterestDto } from './dto/create-point-of-interest.dto';
 import { PointOfInterestResponseDto } from './dto/point-of-interest-response.dto';
 import { UpdatePointOfInterestDto } from './dto/update-point-of-interest.dto';
@@ -25,6 +30,8 @@ export class PointOfInterestService {
 
     @Inject('groupRepository')
     private readonly groupRepository: IGroupRepository,
+
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -37,6 +44,16 @@ export class PointOfInterestService {
     const data = PointOfInterestMapper.toCreateData(dto, groupId);
 
     const pointOfInterest = await this.pointOfInterestRepository.create(data);
+
+    this.eventEmitter.emit(
+      POINT_OF_INTEREST_CREATED_EVENT,
+      new PointOfInterestCreatedEvent(
+        groupId,
+        pointOfInterest.id,
+        pointOfInterest.name,
+        userId,
+      ),
+    );
 
     return PointOfInterestMapper.toResponse(pointOfInterest);
   }

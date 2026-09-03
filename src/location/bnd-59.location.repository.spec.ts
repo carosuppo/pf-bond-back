@@ -66,6 +66,8 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - Repository', ()
   it('transforma los miembros visibles en ubicaciones del dominio', async () => {
     const capturedAt = new Date('2026-08-18T20:00:00Z');
     const lastSeenAt = new Date('2026-08-18T20:01:00Z');
+    const createdAt = new Date();
+    const updatedAt = new Date();
 
     findMany.mockResolvedValue([
       {
@@ -84,8 +86,8 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - Repository', ()
             accuracy: 5,
             capturedAt,
             lastSeenAt,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt,
+            updatedAt,
           },
         },
       },
@@ -106,8 +108,8 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - Repository', ()
           accuracy: 5,
           capturedAt,
           lastSeenAt,
-          createdAt: expect.any(Date),
-          updatedAt: expect.any(Date),
+          createdAt,
+          updatedAt,
         },
       },
     ]);

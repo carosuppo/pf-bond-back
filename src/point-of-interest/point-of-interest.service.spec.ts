@@ -1,5 +1,6 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { PointOfInterestService } from './point-of-interest.service';
 
@@ -15,6 +16,7 @@ describe('PointOfInterestService', () => {
   };
   const memberRepository = { findByUserAndGroup: jest.fn() };
   const groupRepository = { findById: jest.fn() };
+  const eventEmitter = { emit: jest.fn() };
 
   const location = {
     id: 9,
@@ -52,6 +54,7 @@ describe('PointOfInterestService', () => {
         { provide: 'pointOfInterestRepository', useValue: repository },
         { provide: 'memberRepository', useValue: memberRepository },
         { provide: 'groupRepository', useValue: groupRepository },
+        { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
 
@@ -77,6 +80,14 @@ describe('PointOfInterestService', () => {
       longitude: -58.3816,
       groupId: 3,
     });
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'point-of-interest.created',
+      expect.objectContaining({
+        groupId: 3,
+        pointOfInterestId: 5,
+        actorUserId: 7,
+      }),
+    );
   });
 
   it('rechaza crear si el usuario no pertenece al grupo', async () => {
