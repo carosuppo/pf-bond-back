@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { LocationEventService } from './location-event.service';
+import { GroupEventService } from '../group/group-event.service';
 import { LocationService } from './location.service';
 import { SharingRecord } from './interface/location-record.interface';
 import type { ILocationRepository } from './repository/location.repository.interface';
@@ -28,7 +28,7 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - LocationService
       findVisibleMembers: jest.fn(),
     };
 
-    service = new LocationService(repository, new LocationEventService());
+    service = new LocationService(repository, new GroupEventService());
   });
 
   it('devuelve las ubicaciones visibles de los miembros del grupo', async () => {

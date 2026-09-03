@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { LocationEventService } from './location-event.service';
+import { GroupEventService } from '../group/group-event.service';
 import { LocationService } from './location.service';
 import type { ILocationRepository } from './repository/location.repository.interface';
 import { SharingRecord } from './interface/location-record.interface';
@@ -7,7 +7,7 @@ import { SharingRecord } from './interface/location-record.interface';
 describe('LocationService', () => {
   let service: LocationService;
   let repository: jest.Mocked<ILocationRepository>;
-  let events: LocationEventService;
+  let events: GroupEventService;
 
   const sharing: SharingRecord = {
     memberId: 10,
@@ -27,7 +27,7 @@ describe('LocationService', () => {
       updateMemberSharing: jest.fn(),
       findVisibleMembers: jest.fn(),
     };
-    events = new LocationEventService();
+    events = new GroupEventService();
     service = new LocationService(repository, events);
   });
 

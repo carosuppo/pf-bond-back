@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
+import { GroupEventService } from '../group/group-event.service';
 
 import { CurrentLocationResponseDto } from './dto/current-location-response.dto';
 
@@ -17,8 +18,6 @@ import { UpdateCurrentLocationDto } from './dto/update-current-location.dto';
 
 import { SharingRecord } from './interface/location-record.interface';
 
-import { LocationEventService } from './location-event.service';
-
 import type { ILocationRepository } from './repository/location.repository.interface';
 
 @Injectable()
@@ -27,7 +26,7 @@ export class LocationService {
     @Inject('locationRepository')
     private readonly locationRepository: ILocationRepository,
 
-    private readonly locationEventService: LocationEventService,
+    private readonly groupEventService: GroupEventService,
   ) {}
 
   async updateCurrentLocation(
@@ -50,11 +49,12 @@ export class LocationService {
     );
 
     for (const item of effectiveSharing) {
-      this.locationEventService.publish({
+      this.groupEventService.publish({
         event: 'memberLocationUpdated',
 
         data: {
           groupId: item.groupId,
+          actorUserId: userId,
           memberId: item.memberId,
           userId: item.userId,
           name: item.userName,
@@ -86,11 +86,12 @@ export class LocationService {
 
     if (locationExists) {
       for (const item of effectiveSharing) {
-        this.locationEventService.publish({
+        this.groupEventService.publish({
           event: 'memberLocationHeartbeat',
 
           data: {
             groupId: item.groupId,
+            actorUserId: userId,
             memberId: item.memberId,
             userId: item.userId,
             lastSeenAt,
@@ -135,21 +136,23 @@ export class LocationService {
     );
 
     if (!enabled) {
-      this.locationEventService.publish({
+      this.groupEventService.publish({
         event: 'memberLocationRemoved',
 
         data: {
           groupId,
+          actorUserId: userId,
           memberId: sharing.memberId,
           userId,
         },
       });
     } else if (sharing.currentLocation) {
-      this.locationEventService.publish({
+      this.groupEventService.publish({
         event: 'memberLocationUpdated',
 
         data: {
           groupId,
+          actorUserId: userId,
           memberId: sharing.memberId,
           userId,
           name: sharing.userName,

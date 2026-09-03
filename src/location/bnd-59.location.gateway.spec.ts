@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws';
 
-import { LocationEventService } from './location-event.service';
+import { GroupEventService } from '../group/group-event.service';
 import { LocationGateway } from './location.gateway';
 import { LocationService } from './location.service';
 
@@ -32,7 +32,7 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - Gateway', () =>
     const gateway = new LocationGateway(
       {} as SessionAuthenticationService,
       locationService,
-      new LocationEventService(),
+      new GroupEventService(),
     );
 
     const { client, send } = makeClient();
@@ -65,7 +65,7 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - Gateway', () =>
     const gateway = new LocationGateway(
       authenticationService,
       locationService,
-      new LocationEventService(),
+      new GroupEventService(),
     );
 
     const { client, send } = makeClient();
@@ -106,7 +106,7 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - Gateway', () =>
     const gateway = new LocationGateway(
       authenticationService,
       locationService,
-      new LocationEventService(),
+      new GroupEventService(),
     );
 
     const { client, send } = makeClient();

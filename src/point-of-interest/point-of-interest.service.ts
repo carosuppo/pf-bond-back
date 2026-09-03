@@ -7,11 +7,16 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import type { IGroupRepository } from '../group/repository/group.repository.interface';
+import { GroupEventService } from '../group/group-event.service';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
 import {
   POINT_OF_INTEREST_CREATED_EVENT,
   PointOfInterestCreatedEvent,
 } from '../notification/events/point-of-interest-created.event';
+import {
+  POINT_OF_INTEREST_UPDATED_EVENT,
+  PointOfInterestUpdatedEvent,
+} from '../notification/events/point-of-interest-updated.event';
 import { CreatePointOfInterestDto } from './dto/create-point-of-interest.dto';
 import { PointOfInterestResponseDto } from './dto/point-of-interest-response.dto';
 import { UpdatePointOfInterestDto } from './dto/update-point-of-interest.dto';
@@ -32,6 +37,7 @@ export class PointOfInterestService {
     private readonly groupRepository: IGroupRepository,
 
     private readonly eventEmitter: EventEmitter2,
+    private readonly groupEventService: GroupEventService,
   ) {}
 
   async create(
@@ -54,6 +60,14 @@ export class PointOfInterestService {
         userId,
       ),
     );
+    this.groupEventService.publish({
+      event: 'pointOfInterestCreated',
+      data: {
+        groupId,
+        pointOfInterestId: pointOfInterest.id,
+        actorUserId: userId,
+      },
+    });
 
     return PointOfInterestMapper.toResponse(pointOfInterest);
   }
@@ -83,6 +97,21 @@ export class PointOfInterestService {
       PointOfInterestMapper.toUpdateData(dto),
     );
 
+    this.eventEmitter.emit(
+      POINT_OF_INTEREST_UPDATED_EVENT,
+      new PointOfInterestUpdatedEvent(
+        groupId,
+        updated.id,
+        updated.name,
+        userId,
+      ),
+    );
+
+    this.groupEventService.publish({
+      event: 'pointOfInterestUpdated',
+      data: { groupId, pointOfInterestId: pointId, actorUserId: userId },
+    });
+
     return PointOfInterestMapper.toResponse(updated);
   }
 
@@ -94,6 +123,10 @@ export class PointOfInterestService {
     await this.requireAccess(userId, groupId);
     await this.requirePoint(groupId, pointId);
     await this.pointOfInterestRepository.softDelete(pointId);
+    this.groupEventService.publish({
+      event: 'pointOfInterestDeleted',
+      data: { groupId, pointOfInterestId: pointId, actorUserId: userId },
+    });
   }
 
   private async requireAccess(userId: number, groupId: number): Promise<void> {

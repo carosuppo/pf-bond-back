@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationService } from '../notification.service';
 import { PointOfInterestCreatedEvent } from './point-of-interest-created.event';
 import { PointOfInterestCreatedListener } from './point-of-interest-created.listener';
+import { PointOfInterestUpdatedEvent } from './point-of-interest-updated.event';
 
 describe('PointOfInterestCreatedListener', () => {
   let listener: PointOfInterestCreatedListener;
@@ -66,6 +67,61 @@ describe('PointOfInterestCreatedListener', () => {
       new PointOfInterestCreatedEvent(3, 5, 'Colegio', 7),
     );
     await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(notificationService.sendToGroupExceptUser.mock.calls).toHaveLength(
+      1,
+    );
+  });
+
+  it('notifica una actualización con el nombre resultante y excluye al actor', async () => {
+    notificationService.sendToGroupExceptUser.mockResolvedValue(undefined);
+
+    listener.onPointOfInterestUpdated(
+      new PointOfInterestUpdatedEvent(3, 5, 'Colegio', 7),
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(notificationService.sendToGroupExceptUser.mock.calls).toEqual([
+      [
+        3,
+        7,
+        {
+          title: 'Punto de interés actualizado',
+          body: 'Thomas modificó "Colegio" en el grupo Familia.',
+          data: {
+            type: 'POINT_OF_INTEREST_UPDATED',
+            groupId: '3',
+            pointOfInterestId: '5',
+          },
+        },
+      ],
+    ]);
+  });
+
+  it('no falla si una actualización no tiene contexto de destinatarios', async () => {
+    repository.findPointOfInterestNotificationContext.mockResolvedValue(null);
+
+    listener.onPointOfInterestUpdated(
+      new PointOfInterestUpdatedEvent(3, 5, 'Colegio', 7),
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(notificationService.sendToGroupExceptUser.mock.calls).toHaveLength(
+      0,
+    );
+  });
+
+  it('absorbe fallos de Firebase al notificar una actualización', async () => {
+    notificationService.sendToGroupExceptUser.mockRejectedValue(
+      new Error('Firebase temporalmente no disponible'),
+    );
+
+    expect(() =>
+      listener.onPointOfInterestUpdated(
+        new PointOfInterestUpdatedEvent(3, 5, 'Colegio', 7),
+      ),
+    ).not.toThrow();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
     expect(notificationService.sendToGroupExceptUser.mock.calls).toHaveLength(
       1,
     );

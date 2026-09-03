@@ -3,6 +3,7 @@ import { MemberModule } from '../member/member.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserModule } from '../user/user.module';
 import { GroupController } from './group.controller';
+import { GroupEventService } from './group-event.service';
 import { GroupService } from './group.service';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
 import { GroupPrismaRepository } from './repository/group.prisma.repository';
@@ -13,6 +14,7 @@ import { InvitationCodeValidator } from './validator/invitation-code.validator';
   controllers: [GroupController],
   providers: [
     GroupService,
+    GroupEventService,
     PrismaService,
     InvitationCodeHelper,
     InvitationCodeValidator,
@@ -21,6 +23,6 @@ import { InvitationCodeValidator } from './validator/invitation-code.validator';
       useClass: GroupPrismaRepository,
     },
   ],
-  exports: ['groupRepository'],
+  exports: ['groupRepository', GroupEventService],
 })
 export class GroupModule {}

@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { GroupEventService } from '../group/group-event.service';
 
 import { PointOfInterestService } from './point-of-interest.service';
 
@@ -17,6 +18,7 @@ describe('PointOfInterestService', () => {
   const memberRepository = { findByUserAndGroup: jest.fn() };
   const groupRepository = { findById: jest.fn() };
   const eventEmitter = { emit: jest.fn() };
+  const groupEventService = { publish: jest.fn() };
 
   const location = {
     id: 9,
@@ -55,6 +57,7 @@ describe('PointOfInterestService', () => {
         { provide: 'memberRepository', useValue: memberRepository },
         { provide: 'groupRepository', useValue: groupRepository },
         { provide: EventEmitter2, useValue: eventEmitter },
+        { provide: GroupEventService, useValue: groupEventService },
       ],
     }).compile();
 
@@ -88,6 +91,10 @@ describe('PointOfInterestService', () => {
         actorUserId: 7,
       }),
     );
+    expect(groupEventService.publish).toHaveBeenCalledWith({
+      event: 'pointOfInterestCreated',
+      data: { groupId: 3, pointOfInterestId: 5, actorUserId: 7 },
+    });
   });
 
   it('rechaza crear si el usuario no pertenece al grupo', async () => {
@@ -155,6 +162,19 @@ describe('PointOfInterestService', () => {
       longitude: -60,
     });
     expect(result.latitude).toBe(-31);
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'point-of-interest.updated',
+      expect.objectContaining({
+        groupId: 3,
+        pointOfInterestId: 5,
+        pointOfInterestName: 'Sede nueva',
+        actorUserId: 7,
+      }),
+    );
+    expect(groupEventService.publish).toHaveBeenCalledWith({
+      event: 'pointOfInterestUpdated',
+      data: { groupId: 3, pointOfInterestId: 5, actorUserId: 7 },
+    });
   });
 
   it('en una actualización parcial sólo envía los campos recibidos', async () => {
@@ -184,6 +204,10 @@ describe('PointOfInterestService', () => {
     await service.remove(3, 5, 7);
 
     expect(repository.softDelete).toHaveBeenCalledWith(5);
+    expect(groupEventService.publish).toHaveBeenCalledWith({
+      event: 'pointOfInterestDeleted',
+      data: { groupId: 3, pointOfInterestId: 5, actorUserId: 7 },
+    });
   });
 
   it('rechaza eliminar un POI inexistente o ya eliminado', async () => {
@@ -191,5 +215,35 @@ describe('PointOfInterestService', () => {
 
     await expect(service.remove(3, 5, 7)).rejects.toThrow(NotFoundException);
     expect(repository.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('no publica un evento si falla la persistencia', async () => {
+    repository.create.mockRejectedValue(new Error('database unavailable'));
+
+    await expect(
+      service.create(3, 7, {
+        name: 'Facultad',
+        radius: 150,
+        latitude: -34.6,
+        longitude: -58.3,
+      }),
+    ).rejects.toThrow('database unavailable');
+
+    expect(groupEventService.publish).not.toHaveBeenCalled();
+  });
+
+  it('no publica eventos de update o delete si la persistencia falla', async () => {
+    repository.findByIdAndGroupId.mockResolvedValue(point);
+    repository.update.mockRejectedValue(new Error('update failed'));
+
+    await expect(
+      service.update(3, 5, 7, { name: 'Nuevo nombre' }),
+    ).rejects.toThrow('update failed');
+    expect(eventEmitter.emit).not.toHaveBeenCalled();
+    expect(groupEventService.publish).not.toHaveBeenCalled();
+
+    repository.softDelete.mockRejectedValue(new Error('delete failed'));
+    await expect(service.remove(3, 5, 7)).rejects.toThrow('delete failed');
+    expect(groupEventService.publish).not.toHaveBeenCalled();
   });
 });
