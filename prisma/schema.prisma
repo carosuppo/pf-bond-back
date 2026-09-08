@@ -147,7 +147,18 @@ model Reminder {
   group Group @relation(fields: [groupId], references: [id])
 }
 
+enum PointOfInterestColor {
+  RED
+  GREEN
+  ORANGE
+  BLUE
+  PURPLE
+  GREY
+  BLACK
+}
+
 model PointOfInterest {
+  color PointOfInterestColor @default(BLUE)
   presences PointOfInterestPresence[]
   id          Int       @id @default(autoincrement())
   name        String

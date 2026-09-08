@@ -1,4 +1,7 @@
+import { PointOfInterestColor } from '@prisma/client';
 export class PointOfInterestResponseDto {
+  color!: PointOfInterestColor;
+
   id!: number;
 
   name!: string;

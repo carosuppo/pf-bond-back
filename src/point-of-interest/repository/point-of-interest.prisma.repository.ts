@@ -25,6 +25,7 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
 
       return transaction.pointOfInterest.create({
         data: {
+          color: data.color,
           name: data.name,
           description: data.description,
           radius: data.radius,
@@ -98,6 +99,7 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
       return transaction.pointOfInterest.update({
         where: { id: pointId },
         data: {
+          color: data.color,
           name: data.name,
           description: data.description,
           radius: data.radius,

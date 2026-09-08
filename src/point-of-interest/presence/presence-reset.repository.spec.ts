@@ -5,6 +5,7 @@ import { IMemberRepository } from '../../member/repository/member.repository.int
 import { PointOfInterestPrismaRepository } from '../repository/point-of-interest.prisma.repository';
 import { PointOfInterestPresencePrismaRepository } from './point-of-interest-presence.prisma.repository';
 import { PresenceCandidate } from './point-of-interest-presence.repository.interface';
+import { PointOfInterestColor } from '@prisma/client';
 
 describe('Presence persistence and reset', () => {
   const point = {
@@ -87,6 +88,24 @@ describe('Presence persistence and reset', () => {
     await new PointOfInterestPrismaRepository(prisma).update(8, change);
     expect(tx.pointOfInterestPresence.deleteMany).not.toHaveBeenCalled();
   });
+  it('color-only update persists color without touching geometry or presence', async () => {
+    await new PointOfInterestPrismaRepository(prisma).update(8, {
+      color: PointOfInterestColor.PURPLE,
+    });
+    expect(tx.pointOfInterest.update).toHaveBeenCalledWith({
+      where: { id: 8 },
+      data: {
+        color: PointOfInterestColor.PURPLE,
+        name: undefined,
+        description: undefined,
+        radius: undefined,
+      },
+      include: { location: true },
+    });
+    expect(tx.location.update).not.toHaveBeenCalled();
+    expect(tx.pointOfInterestPresence.deleteMany).not.toHaveBeenCalled();
+  });
+
   it('soft delete cleans presences', async () => {
     await new PointOfInterestPrismaRepository(prisma).softDelete(8);
     expect(tx.pointOfInterest.update.mock.calls[0][0]).toMatchObject({

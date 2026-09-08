@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GroupEventService } from '../group/group-event.service';
+import { PointOfInterestColor } from '@prisma/client';
 
 import { PointOfInterestService } from './point-of-interest.service';
 
@@ -31,6 +32,7 @@ describe('PointOfInterestService', () => {
     updatedAt: new Date('2026-08-01T00:00:00Z'),
   };
   const point = {
+    color: PointOfInterestColor.BLUE,
     id: 5,
     name: 'Facultad',
     description: 'Edificio principal',
@@ -76,6 +78,7 @@ describe('PointOfInterestService', () => {
     });
 
     expect(repository.create).toHaveBeenCalledWith({
+      color: PointOfInterestColor.BLUE,
       name: 'Facultad',
       description: null,
       radius: 150,
@@ -93,6 +96,50 @@ describe('PointOfInterestService', () => {
     );
     expect(groupEventService.publish).toHaveBeenCalledWith({
       event: 'pointOfInterestCreated',
+      data: { groupId: 3, pointOfInterestId: 5, actorUserId: 7 },
+    });
+  });
+
+  it('crea RED y lo devuelve en la respuesta', async () => {
+    repository.create.mockResolvedValue({
+      ...point,
+      color: PointOfInterestColor.RED,
+    });
+    const result = await service.create(3, 7, {
+      name: 'Colegio',
+      radius: 100,
+      latitude: -34.6,
+      longitude: -58.38,
+      color: PointOfInterestColor.RED,
+    });
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ color: PointOfInterestColor.RED }),
+    );
+    expect(result.color).toBe(PointOfInterestColor.RED);
+  });
+
+  it('actualiza sólo color y conserva geometría y eventos existentes', async () => {
+    repository.findByIdAndGroupId.mockResolvedValue(point);
+    repository.update.mockResolvedValue({
+      ...point,
+      color: PointOfInterestColor.PURPLE,
+    });
+    const result = await service.update(3, 5, 7, {
+      color: PointOfInterestColor.PURPLE,
+    });
+    expect(repository.update).toHaveBeenCalledWith(5, {
+      color: PointOfInterestColor.PURPLE,
+    });
+    expect(result.color).toBe(PointOfInterestColor.PURPLE);
+    expect(result.radius).toBe(point.radius);
+    expect(result.latitude).toBe(location.latitude);
+    expect(result.longitude).toBe(location.longitude);
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'point-of-interest.updated',
+      expect.objectContaining({ pointOfInterestId: 5 }),
+    );
+    expect(groupEventService.publish).toHaveBeenCalledWith({
+      event: 'pointOfInterestUpdated',
       data: { groupId: 3, pointOfInterestId: 5, actorUserId: 7 },
     });
   });
@@ -124,6 +171,7 @@ describe('PointOfInterestService', () => {
     await expect(service.getByGroup(3, 7)).resolves.toEqual([
       {
         id: 5,
+        color: PointOfInterestColor.BLUE,
         name: 'Facultad',
         description: 'Edificio principal',
         radius: 150,

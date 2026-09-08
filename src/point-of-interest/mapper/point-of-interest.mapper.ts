@@ -1,3 +1,4 @@
+import { PointOfInterestColor } from '@prisma/client';
 import type { CreatePointOfInterestDto } from '../dto/create-point-of-interest.dto';
 import type { PointOfInterestResponseDto } from '../dto/point-of-interest-response.dto';
 import type { UpdatePointOfInterestDto } from '../dto/update-point-of-interest.dto';
@@ -13,6 +14,7 @@ export class PointOfInterestMapper {
     const normalizedDescription = dto.description?.trim() ?? '';
 
     return {
+      color: dto.color ?? PointOfInterestColor.BLUE,
       name: dto.name.trim(),
       description:
         normalizedDescription.length === 0 ? null : normalizedDescription,
@@ -28,6 +30,7 @@ export class PointOfInterestMapper {
   ): UpdatePointOfInterestData {
     const data: UpdatePointOfInterestData = {};
 
+    if (dto.color !== undefined) data.color = dto.color;
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.description !== undefined) {
       const description = dto.description?.trim() ?? '';
@@ -44,6 +47,7 @@ export class PointOfInterestMapper {
     pointOfInterest: PointOfInterestWithLocation,
   ): PointOfInterestResponseDto {
     return {
+      color: pointOfInterest.color,
       id: pointOfInterest.id,
       name: pointOfInterest.name,
       description: pointOfInterest.description,

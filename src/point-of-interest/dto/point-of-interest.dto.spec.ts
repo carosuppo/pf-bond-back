@@ -1,11 +1,50 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import 'reflect-metadata';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { PointOfInterestColor } from '@prisma/client';
 
 import { CreatePointOfInterestDto } from './create-point-of-interest.dto';
 import { UpdatePointOfInterestDto } from './update-point-of-interest.dto';
 
 describe('PointOfInterest DTOs', () => {
+  it.each(Object.values(PointOfInterestColor))(
+    'acepta color %s en create y PATCH',
+    async (color) => {
+      await expect(
+        validate(
+          plainToInstance(CreatePointOfInterestDto, {
+            name: 'Colegio',
+            radius: 100,
+            latitude: 0,
+            longitude: 0,
+            color,
+          }),
+        ),
+      ).resolves.toHaveLength(0);
+      await expect(
+        validate(plainToInstance(UpdatePointOfInterestDto, { color })),
+      ).resolves.toHaveLength(0);
+    },
+  );
+
+  it.each(['PINK', '#ff0000', null, 42])(
+    'color inválido %s produce HTTP 400',
+    async (color) => {
+      const pipe = new ValidationPipe({ transform: true, whitelist: true });
+      for (const metatype of [
+        CreatePointOfInterestDto,
+        UpdatePointOfInterestDto,
+      ]) {
+        await expect(
+          pipe.transform(
+            { name: 'Colegio', radius: 100, latitude: 0, longitude: 0, color },
+            { type: 'body', metatype },
+          ),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      }
+    },
+  );
   it.each([
     [{ radius: 10, latitude: -34, longitude: -58 }, 'name'],
     [{ name: '   ', radius: 10, latitude: -34, longitude: -58 }, 'name'],

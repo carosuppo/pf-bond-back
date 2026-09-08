@@ -1,5 +1,8 @@
+import { PointOfInterestColor } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsEnum,
+  ValidateIf,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -11,6 +14,10 @@ import {
 } from 'class-validator';
 
 export class UpdatePointOfInterestDto {
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsEnum(PointOfInterestColor)
+  color?: PointOfInterestColor;
+
   @IsOptional()
   @Transform(({ value }: { value: unknown }): unknown =>
     typeof value === 'string' ? value.trim() : value,
