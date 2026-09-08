@@ -12,7 +12,7 @@ describe('PointOfInterestCreatedListener', () => {
     findPointOfInterestNotificationContext: jest.fn(),
   };
   const notificationService = {
-    sendToGroupExceptUser: jest.fn(),
+    sendToGroupExceptUserByType: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -34,17 +34,20 @@ describe('PointOfInterestCreatedListener', () => {
   });
 
   it('excluye al creador y construye data de FCM únicamente con strings', async () => {
-    notificationService.sendToGroupExceptUser.mockResolvedValue(undefined);
+    notificationService.sendToGroupExceptUserByType.mockResolvedValue(
+      undefined,
+    );
 
     listener.onPointOfInterestCreated(
       new PointOfInterestCreatedEvent(3, 5, 'Colegio', 7),
     );
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    expect(notificationService.sendToGroupExceptUser.mock.calls).toEqual([
+    expect(notificationService.sendToGroupExceptUserByType.mock.calls).toEqual([
       [
         3,
         7,
+        'POINT_OF_INTEREST_CREATED',
         {
           title: 'Nuevo punto de interés',
           body: 'Thomas agregó "Colegio" al grupo Familia.',
@@ -59,7 +62,7 @@ describe('PointOfInterestCreatedListener', () => {
   });
 
   it('absorbe fallos de Firebase para que el evento no falle', async () => {
-    notificationService.sendToGroupExceptUser.mockRejectedValue(
+    notificationService.sendToGroupExceptUserByType.mockRejectedValue(
       new Error('Firebase temporalmente no disponible'),
     );
 
@@ -67,23 +70,26 @@ describe('PointOfInterestCreatedListener', () => {
       new PointOfInterestCreatedEvent(3, 5, 'Colegio', 7),
     );
     await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(notificationService.sendToGroupExceptUser.mock.calls).toHaveLength(
-      1,
-    );
+    expect(
+      notificationService.sendToGroupExceptUserByType.mock.calls,
+    ).toHaveLength(1);
   });
 
   it('notifica una actualización con el nombre resultante y excluye al actor', async () => {
-    notificationService.sendToGroupExceptUser.mockResolvedValue(undefined);
+    notificationService.sendToGroupExceptUserByType.mockResolvedValue(
+      undefined,
+    );
 
     listener.onPointOfInterestUpdated(
       new PointOfInterestUpdatedEvent(3, 5, 'Colegio', 7),
     );
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    expect(notificationService.sendToGroupExceptUser.mock.calls).toEqual([
+    expect(notificationService.sendToGroupExceptUserByType.mock.calls).toEqual([
       [
         3,
         7,
+        'POINT_OF_INTEREST_UPDATED',
         {
           title: 'Punto de interés actualizado',
           body: 'Thomas modificó "Colegio" en el grupo Familia.',
@@ -105,13 +111,13 @@ describe('PointOfInterestCreatedListener', () => {
     );
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    expect(notificationService.sendToGroupExceptUser.mock.calls).toHaveLength(
-      0,
-    );
+    expect(
+      notificationService.sendToGroupExceptUserByType.mock.calls,
+    ).toHaveLength(0);
   });
 
   it('absorbe fallos de Firebase al notificar una actualización', async () => {
-    notificationService.sendToGroupExceptUser.mockRejectedValue(
+    notificationService.sendToGroupExceptUserByType.mockRejectedValue(
       new Error('Firebase temporalmente no disponible'),
     );
 
@@ -122,8 +128,8 @@ describe('PointOfInterestCreatedListener', () => {
     ).not.toThrow();
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    expect(notificationService.sendToGroupExceptUser.mock.calls).toHaveLength(
-      1,
-    );
+    expect(
+      notificationService.sendToGroupExceptUserByType.mock.calls,
+    ).toHaveLength(1);
   });
 });

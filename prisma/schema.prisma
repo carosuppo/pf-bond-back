@@ -14,7 +14,15 @@ enum RoleEnum {
 }
 
 // Models
+enum NotificationType {
+  POINT_OF_INTEREST_CREATED
+  POINT_OF_INTEREST_UPDATED
+  POINT_OF_INTEREST_ENTERED
+  POINT_OF_INTEREST_EXITED
+}
+
 model User {
+  notificationsEnabled Boolean @default(true)
   id              Int       @id @default(autoincrement())
   name            String
   email           String    @unique
@@ -96,6 +104,9 @@ model Group {
 }
 
 model Member {
+  notificationsEnabled Boolean @default(true)
+  notificationPreferences MemberNotificationPreference[]
+  pointOfInterestPresences PointOfInterestPresence[]
   id                     Int      @id @default(autoincrement())
   userId                 Int
   groupId                Int
@@ -137,6 +148,7 @@ model Reminder {
 }
 
 model PointOfInterest {
+  presences PointOfInterestPresence[]
   id          Int       @id @default(autoincrement())
   name        String
   description String?
@@ -166,4 +178,30 @@ model Location {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model MemberNotificationPreference {
+  id Int @id @default(autoincrement())
+  memberId Int
+  type NotificationType
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, type])
+}
+
+model PointOfInterestPresence {
+  id Int @id @default(autoincrement())
+  memberId Int
+  pointOfInterestId Int
+  isInside Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  pointOfInterest PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, pointOfInterestId])
+  @@index([pointOfInterestId])
 }

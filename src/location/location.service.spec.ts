@@ -1,3 +1,4 @@
+import { PointOfInterestPresenceService } from '../point-of-interest/presence/point-of-interest-presence.service';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { GroupEventService } from '../group/group-event.service';
 import { LocationService } from './location.service';
@@ -21,6 +22,7 @@ describe('LocationService', () => {
 
   beforeEach(() => {
     repository = {
+      updateLastSeen: jest.fn(),
       upsertCurrentLocation: jest.fn(),
       findSharingByUser: jest.fn(),
       findSharingByUserAndGroup: jest.fn(),
@@ -28,7 +30,9 @@ describe('LocationService', () => {
       findVisibleMembers: jest.fn(),
     };
     events = new GroupEventService();
-    service = new LocationService(repository, events);
+    service = new LocationService(repository, events, {
+      evaluate: jest.fn().mockResolvedValue(undefined),
+    } as unknown as PointOfInterestPresenceService);
   });
 
   it('updates the current location and publishes it only to effective groups', async () => {

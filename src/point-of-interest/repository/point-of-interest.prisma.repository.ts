@@ -68,11 +68,23 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
     data: UpdatePointOfInterestData,
   ): Promise<PointOfInterestWithLocation> {
     return this.prismaService.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "PointOfInterest" WHERE id = ${pointId} FOR UPDATE`;
       const point = await transaction.pointOfInterest.findUniqueOrThrow({
         where: { id: pointId },
-        select: { locationId: true },
+        include: { location: true },
       });
 
+      const geometryChanged =
+        (data.radius !== undefined && data.radius !== point.radius) ||
+        (data.latitude !== undefined &&
+          data.latitude !== point.location.latitude) ||
+        (data.longitude !== undefined &&
+          data.longitude !== point.location.longitude);
+      if (geometryChanged) {
+        await transaction.pointOfInterestPresence.deleteMany({
+          where: { pointOfInterestId: pointId },
+        });
+      }
       if (data.latitude !== undefined || data.longitude !== undefined) {
         await transaction.location.update({
           where: { id: point.locationId },
@@ -96,9 +108,14 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
   }
 
   async softDelete(pointId: number): Promise<void> {
-    await this.prismaService.pointOfInterest.update({
-      where: { id: pointId },
-      data: { deletedAt: new Date() },
+    await this.prismaService.$transaction(async (tx) => {
+      await tx.pointOfInterest.update({
+        where: { id: pointId },
+        data: { deletedAt: new Date() },
+      });
+      await tx.pointOfInterestPresence.deleteMany({
+        where: { pointOfInterestId: pointId },
+      });
     });
   }
 }

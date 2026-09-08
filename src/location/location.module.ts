@@ -1,3 +1,5 @@
+import { PointOfInterestPresenceService } from '../point-of-interest/presence/point-of-interest-presence.service';
+import { PointOfInterestPresencePrismaRepository } from '../point-of-interest/presence/point-of-interest-presence.prisma.repository';
 import { Module } from '@nestjs/common';
 import { GroupModule } from '../group/group.module';
 import { UserModule } from '../user/user.module';
@@ -11,6 +13,11 @@ import { LocationPrismaRepository } from './repository/location.prisma.repositor
   controllers: [LocationController],
   providers: [
     LocationService,
+    PointOfInterestPresenceService,
+    {
+      provide: 'pointOfInterestPresenceRepository',
+      useClass: PointOfInterestPresencePrismaRepository,
+    },
     LocationGateway,
     { provide: 'locationRepository', useClass: LocationPrismaRepository },
   ],

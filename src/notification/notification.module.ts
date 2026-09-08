@@ -1,3 +1,5 @@
+import { NotificationPreferencesService } from './notification-preferences.service';
+import { PrismaNotificationPreferencesRepository } from './repository/prisma-notification-preferences.repository';
 import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../prisma/prisma.module';
@@ -14,6 +16,11 @@ import { PrismaDevicePushTokenRepository } from './repository/prisma-device-push
   providers: [
     FirebasePushService,
     NotificationService,
+    NotificationPreferencesService,
+    {
+      provide: 'notificationPreferencesRepository',
+      useClass: PrismaNotificationPreferencesRepository,
+    },
     PointOfInterestCreatedListener,
     {
       provide: 'devicePushTokenRepository',

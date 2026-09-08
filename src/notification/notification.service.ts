@@ -1,3 +1,4 @@
+import { NotificationType } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
 
 import {
@@ -44,6 +45,21 @@ export class NotificationService {
   async sendToGroup(groupId: number, message: PushMessage): Promise<void> {
     const userIds =
       await this.devicePushTokenRepository.findActiveUserIdsByGroup(groupId);
+    await this.sendToUsers(userIds, message);
+  }
+
+  async sendToGroupExceptUserByType(
+    groupId: number,
+    excludedUserId: number,
+    type: NotificationType,
+    message: PushMessage,
+  ): Promise<void> {
+    const userIds =
+      await this.devicePushTokenRepository.findActiveUserIdsByGroup(
+        groupId,
+        excludedUserId,
+        type,
+      );
     await this.sendToUsers(userIds, message);
   }
 

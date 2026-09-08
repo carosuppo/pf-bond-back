@@ -1,3 +1,4 @@
+import { PointOfInterestPresenceService } from '../point-of-interest/presence/point-of-interest-presence.service';
 import { ForbiddenException } from '@nestjs/common';
 import { GroupEventService } from '../group/group-event.service';
 import { LocationService } from './location.service';
@@ -28,7 +29,9 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - LocationService
       findVisibleMembers: jest.fn(),
     };
 
-    service = new LocationService(repository, new GroupEventService());
+    service = new LocationService(repository, new GroupEventService(), {
+      evaluate: jest.fn(),
+    } as unknown as PointOfInterestPresenceService);
   });
 
   it('devuelve las ubicaciones visibles de los miembros del grupo', async () => {

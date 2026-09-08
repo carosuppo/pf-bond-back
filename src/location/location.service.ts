@@ -1,8 +1,10 @@
+import { PointOfInterestPresenceService } from '../point-of-interest/presence/point-of-interest-presence.service';
 import {
   ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { GroupEventService } from '../group/group-event.service';
 
@@ -22,11 +24,13 @@ import type { ILocationRepository } from './repository/location.repository.inter
 
 @Injectable()
 export class LocationService {
+  private readonly logger = new Logger(LocationService.name);
   constructor(
     @Inject('locationRepository')
     private readonly locationRepository: ILocationRepository,
 
     private readonly groupEventService: GroupEventService,
+    private readonly presenceService: PointOfInterestPresenceService,
   ) {}
 
   async updateCurrentLocation(
@@ -63,6 +67,14 @@ export class LocationService {
       });
     }
 
+    try {
+      await this.presenceService.evaluate(userId, location);
+    } catch (error: unknown) {
+      this.logger.error(
+        'No se pudieron evaluar las presencias de POI',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
     return location;
   }
 

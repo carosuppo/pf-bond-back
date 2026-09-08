@@ -96,9 +96,14 @@ export class GroupPrismaRepository implements IGroupRepository {
   }
 
   async update(id: number, data: UpdateGroupData): Promise<Group> {
-    return this.prisma.group.update({
-      where: { id },
-      data,
+    return this.prisma.$transaction(async (tx) => {
+      const group = await tx.group.update({ where: { id }, data });
+      if (data.shareLocationMandatorily === false) {
+        await tx.pointOfInterestPresence.deleteMany({
+          where: { member: { groupId: id, locationSharingEnabled: false } },
+        });
+      }
+      return group;
     });
   }
 

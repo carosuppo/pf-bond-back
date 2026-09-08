@@ -1,3 +1,12 @@
+import { NotificationType } from '@prisma/client';
+import {
+  POINT_OF_INTEREST_ENTERED_EVENT,
+  PointOfInterestEnteredEvent,
+} from './point-of-interest-entered.event';
+import {
+  POINT_OF_INTEREST_EXITED_EVENT,
+  PointOfInterestExitedEvent,
+} from './point-of-interest-exited.event';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
@@ -13,12 +22,15 @@ import {
 } from './point-of-interest-updated.event';
 
 type PointOfInterestNotificationEvent =
-  PointOfInterestCreatedEvent | PointOfInterestUpdatedEvent;
+  | PointOfInterestCreatedEvent
+  | PointOfInterestUpdatedEvent
+  | PointOfInterestEnteredEvent
+  | PointOfInterestExitedEvent;
 
 interface PointOfInterestNotificationContent {
   title: string;
   action: string;
-  type: 'POINT_OF_INTEREST_CREATED' | 'POINT_OF_INTEREST_UPDATED';
+  type: NotificationType;
 }
 
 @Injectable()
@@ -46,6 +58,23 @@ export class PointOfInterestCreatedListener {
       title: 'Punto de interés actualizado',
       action: 'modificó',
       type: 'POINT_OF_INTEREST_UPDATED',
+    });
+  }
+
+  @OnEvent(POINT_OF_INTEREST_ENTERED_EVENT)
+  onPointOfInterestEntered(event: PointOfInterestEnteredEvent): void {
+    this.handleSafely(event, {
+      title: 'Ingreso a punto de interés',
+      action: 'ingresó a',
+      type: 'POINT_OF_INTEREST_ENTERED',
+    });
+  }
+  @OnEvent(POINT_OF_INTEREST_EXITED_EVENT)
+  onPointOfInterestExited(event: PointOfInterestExitedEvent): void {
+    this.handleSafely(event, {
+      title: 'Egreso de punto de interés',
+      action: 'salió de',
+      type: 'POINT_OF_INTEREST_EXITED',
     });
   }
 
@@ -79,13 +108,18 @@ export class PointOfInterestCreatedListener {
       return;
     }
 
-    await this.notificationService.sendToGroupExceptUser(
+    await this.notificationService.sendToGroupExceptUserByType(
       event.groupId,
       event.actorUserId,
+      content.type,
       {
         title: content.title,
         body: `${context.actorName} ${content.action} "${event.pointOfInterestName}" ${content.type === 'POINT_OF_INTEREST_CREATED' ? 'al' : 'en el'} grupo ${context.groupName}.`,
         data: {
+          ...(content.type === 'POINT_OF_INTEREST_ENTERED' ||
+          content.type === 'POINT_OF_INTEREST_EXITED'
+            ? { memberUserId: String(event.actorUserId) }
+            : {}),
           type: content.type,
           groupId: String(event.groupId),
           pointOfInterestId: String(event.pointOfInterestId),

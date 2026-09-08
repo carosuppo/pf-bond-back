@@ -1,3 +1,4 @@
+import { NotificationType } from '@prisma/client';
 export interface DevicePushTokenRecord {
   token: string;
   userId: number;
@@ -15,6 +16,7 @@ export interface IDevicePushTokenRepository {
   findActiveUserIdsByGroup(
     groupId: number,
     excludedUserId?: number,
+    type?: NotificationType,
   ): Promise<number[]>;
   findPointOfInterestNotificationContext(
     groupId: number,

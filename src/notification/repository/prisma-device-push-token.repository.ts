@@ -1,3 +1,4 @@
+import { NotificationType } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -33,7 +34,10 @@ export class PrismaDevicePushTokenRepository implements IDevicePushTokenReposito
     if (userIds.length === 0) return [];
 
     return this.prismaService.devicePushToken.findMany({
-      where: { userId: { in: userIds } },
+      where: {
+        userId: { in: userIds },
+        user: { deletedAt: null, notificationsEnabled: true },
+      },
       select: { token: true, userId: true },
     });
   }
@@ -41,14 +45,19 @@ export class PrismaDevicePushTokenRepository implements IDevicePushTokenReposito
   async findActiveUserIdsByGroup(
     groupId: number,
     excludedUserId?: number,
+    type?: NotificationType,
   ): Promise<number[]> {
     const members = await this.prismaService.member.findMany({
       where: {
         groupId,
+        notificationsEnabled: true,
+        notificationPreferences: type
+          ? { none: { type, enabled: false } }
+          : undefined,
         userId:
           excludedUserId === undefined ? undefined : { not: excludedUserId },
         group: { deletedAt: null },
-        user: { deletedAt: null },
+        user: { deletedAt: null, notificationsEnabled: true },
       },
       select: { userId: true },
     });
