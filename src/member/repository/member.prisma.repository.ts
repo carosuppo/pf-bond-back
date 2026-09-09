@@ -96,4 +96,23 @@ export class MemberPrismaRepository implements IMemberRepository {
       },
     });
   }
+
+  async getMembersByIds(
+    memberIds: number[],
+    groupId: number,
+  ): Promise<number[]> {
+    const members = await this.prismaService.member.findMany({
+      where: {
+        id: {
+          in: memberIds,
+        },
+        groupId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return members.map((member) => member.id);
+  }
 }

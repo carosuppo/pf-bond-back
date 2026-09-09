@@ -6,6 +6,7 @@ import { UserModule } from '../user/user.module';
 import { EventController } from './event.controller';
 import { EventService } from './event.service';
 import { EventPrismaRepository } from './repository/event.prisma.repository';
+import { EventValidator } from './validator/event.validator';
 
 @Module({
   imports: [MemberModule, GroupModule, UserModule],
@@ -13,6 +14,10 @@ import { EventPrismaRepository } from './repository/event.prisma.repository';
   providers: [
     EventService,
     PrismaService,
+    {
+      provide: 'eventValidator',
+      useClass: EventValidator,
+    },
     {
       provide: 'eventRepository',
       useClass: EventPrismaRepository,

@@ -12,4 +12,5 @@ export interface IMemberRepository {
   findById(memberId: number): Promise<Member | null>;
   countAdminsByGroup(groupId: number): Promise<number>;
   updateRole(memberId: number, role: RoleEnum): Promise<Member>;
+  getMembersByIds(memberIds: number[], groupId: number): Promise<number[]>;
 }

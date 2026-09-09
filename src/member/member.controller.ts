@@ -20,7 +20,7 @@ export class MemberController {
   constructor(private readonly memberService: MemberService) {}
 
   @Get(':memberId')
-  getMemberInfo(
+  async getMemberInfo(
     @Param('memberId', ParseIntPipe) memberId: number,
     @CurrentUser() userId: number,
   ): Promise<GetMemberInfoResponseDto> {
@@ -28,7 +28,7 @@ export class MemberController {
   }
 
   @Put(':memberId/role')
-  updateMemberRole(
+  async updateMemberRole(
     @Param('memberId', ParseIntPipe) memberId: number,
     @Body() dto: UpdateMemberRoleDto,
     @CurrentUser() userId: number,
