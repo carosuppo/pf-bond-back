@@ -10,6 +10,8 @@ export interface IUserRepository {
 
   findByEmail(email: string): Promise<User | null>;
 
+  findById(userId: number): Promise<User | null>;
+
   markEmailAsVerified(userId: number): Promise<User>;
 
   findById(userId: number): Promise<User | null>;
@@ -17,4 +19,6 @@ export interface IUserRepository {
   findGroupsByUserId(userId: number): Promise<UserProfileGroupEntity[]>;
 
   update(userId: number, updateUserData: UpdateUserData): Promise<User>;
+
+  updatePassword(userId: number, passwordHash: string): Promise<User>;
 }

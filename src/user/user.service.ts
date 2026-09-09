@@ -12,6 +12,7 @@ import { Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { MailService } from '../mail/mail.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
@@ -191,6 +192,45 @@ export class UserService {
     );
 
     return UserMapper.toResponseDto(updatedUser);
+  }
+
+  async changePassword(
+    userId: number,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<MessageResponseDto> {
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      changePasswordDto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('La contraseña actual es incorrecta.');
+    }
+
+    const isSamePassword = await bcrypt.compare(
+      changePasswordDto.newPassword,
+      user.passwordHash,
+    );
+
+    if (isSamePassword) {
+      throw new BadRequestException(
+        'La nueva contraseña debe ser distinta a la actual.',
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(changePasswordDto.newPassword, 12);
+
+    await this.userRepository.updatePassword(userId, passwordHash);
+
+    return {
+      message: 'Contraseña actualizada correctamente.',
+    };
   }
 
   async login(loginUserDto: LoginUserDto): Promise<UserAuthResponseDto> {
