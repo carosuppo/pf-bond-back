@@ -51,6 +51,7 @@ export class GroupMapper {
       shareLocationMandatorily: entity.shareLocationMandatorily,
       invitationCode: entity.invitationCode,
       members: entity.members.map((member) => ({
+        id: member.id,
         idUser: member.idUser,
         name: member.name,
         role: member.role,

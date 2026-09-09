@@ -90,15 +90,17 @@ model Member {
   group Group @relation(fields: [groupId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
 
+  eventMembers EventMember[]
+
   @@unique([userId, groupId])
 }
 
 model Event {
   id              Int      @id @default(autoincrement())
-  date            DateTime
   name            String
-  budget          Int
-  accumulatedCash Int      @default(0)
+  description     String?
+  startAt         DateTime
+  endAt           DateTime?
   groupId         Int
 
   createdAt DateTime  @default(now())
@@ -106,6 +108,19 @@ model Event {
   deletedAt DateTime?
 
   group Group @relation(fields: [groupId], references: [id])
+  members EventMember[]
+}
+
+model EventMember {
+  id        Int @id @default(autoincrement())
+  eventId   Int
+  memberId  Int
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, memberId])
+  @@index([memberId])
 }
 
 model Reminder {
