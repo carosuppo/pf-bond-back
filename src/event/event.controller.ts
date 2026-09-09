@@ -15,20 +15,20 @@ import { EventService } from './event.service';
 export class EventController {
   constructor(private readonly eventService: EventService) {}
 
-  @Get()
-  getAll(
-    @Param('groupId', ParseIntPipe) groupId: number,
-    @CurrentUser() userId: number,
-  ): Promise<EventResponseDto[]> {
-    return this.eventService.getEventsByGroup(groupId, userId);
-  }
-
   @Get(':id')
   async getOne(
     @Param('groupId', ParseIntPipe) groupId: number,
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() userId: number,
   ): Promise<EventResponseDto> {
-    return this.eventService.getEventById(groupId, id, userId);
+    return this.eventService.getEventById(id, groupId, userId);
+  }
+
+  @Get()
+  getAll(
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @CurrentUser() userId: number,
+  ): Promise<EventResponseDto[]> {
+    return this.eventService.getEventsByGroup(groupId, userId);
   }
 }
