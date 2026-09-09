@@ -137,13 +137,15 @@ export class LocationPrismaRepository implements ILocationRepository {
   }
 
   async updateMemberSharing(memberId: number, enabled: boolean): Promise<void> {
-    await this.prismaService.member.update({
-      where: {
-        id: memberId,
-      },
-      data: {
-        locationSharingEnabled: enabled,
-      },
+    await this.prismaService.$transaction(async (tx) => {
+      const member = await tx.member.update({
+        where: { id: memberId },
+        data: { locationSharingEnabled: enabled },
+        include: { group: true },
+      });
+      if (!enabled && !member.group.shareLocationMandatorily) {
+        await tx.pointOfInterestPresence.deleteMany({ where: { memberId } });
+      }
     });
   }
 

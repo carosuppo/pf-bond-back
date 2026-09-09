@@ -7,10 +7,10 @@ import {
 } from '@nestjs/websockets';
 import { Subscription } from 'rxjs';
 import { WebSocket } from 'ws';
+import { GroupEvent, GroupEventService } from '../group/group-event.service';
 import { SessionAuthenticationService } from '../user/service/session-authentication.service';
 import { AuthenticateLocationSocketDto } from './dto/authenticate-location-socket.dto';
 import { SubscribeGroupDto } from './dto/subscribe-group.dto';
-import { LocationEvent, LocationEventService } from './location-event.service';
 import { LocationService } from './location.service';
 
 interface SocketMessage<T> {
@@ -39,12 +39,12 @@ export class LocationGateway
 
     private readonly locationService: LocationService,
 
-    private readonly locationEventService: LocationEventService,
+    private readonly groupEventService: GroupEventService,
   ) {}
 
   onModuleInit(): void {
-    this.eventSubscription = this.locationEventService.events$.subscribe(
-      (event) => this.broadcast(event),
+    this.eventSubscription = this.groupEventService.events$.subscribe((event) =>
+      this.broadcast(event),
     );
   }
 
@@ -147,7 +147,7 @@ export class LocationGateway
     }
   }
 
-  private broadcast(event: LocationEvent): void {
+  private broadcast(event: GroupEvent): void {
     const clients = this.groupSubscriptions.get(event.data.groupId);
 
     if (!clients) {
@@ -159,7 +159,7 @@ export class LocationGateway
 
       // Nunca devolverle al usuario
       // sus propios eventos.
-      if (authenticatedUserId === event.data.userId) {
+      if (authenticatedUserId === event.data.actorUserId) {
         continue;
       }
 
@@ -169,7 +169,7 @@ export class LocationGateway
     }
   }
 
-  private send<T>(client: WebSocket, message: SocketMessage<T>): void {
+  private send(client: WebSocket, message: SocketMessage<unknown>): void {
     client.send(JSON.stringify(message));
   }
 }

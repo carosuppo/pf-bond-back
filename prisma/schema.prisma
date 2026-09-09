@@ -14,7 +14,15 @@ enum RoleEnum {
 }
 
 // Models
+enum NotificationType {
+  POINT_OF_INTEREST_CREATED
+  POINT_OF_INTEREST_UPDATED
+  POINT_OF_INTEREST_ENTERED
+  POINT_OF_INTEREST_EXITED
+}
+
 model User {
+  notificationsEnabled Boolean @default(true)
   id              Int       @id @default(autoincrement())
   name            String
   email           String    @unique
@@ -24,6 +32,7 @@ model User {
 
   members  Member[]
   sessions UserSession[]
+  devicePushTokens DevicePushToken[]
 
   emailVerifiedAt         DateTime?
   emailVerificationTokens EmailVerificationToken[]
@@ -31,6 +40,20 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+}
+
+model DevicePushToken {
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  token    String @unique
+  platform String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model EmailVerificationToken {
@@ -81,6 +104,9 @@ model Group {
 }
 
 model Member {
+  notificationsEnabled Boolean @default(true)
+  notificationPreferences MemberNotificationPreference[]
+  pointOfInterestPresences PointOfInterestPresence[]
   id                     Int      @id @default(autoincrement())
   userId                 Int
   groupId                Int
@@ -136,16 +162,27 @@ model Reminder {
   group Group @relation(fields: [groupId], references: [id])
 }
 
+enum PointOfInterestColor {
+  RED
+  GREEN
+  ORANGE
+  BLUE
+  PURPLE
+  GREY
+  BLACK
+}
+
 model PointOfInterest {
-  id              Int       @id @default(autoincrement())
-  name            String
-  description     String?
-  radius          Float
-  isTemporary     Boolean   @default(false)
-  endTime         DateTime?
-  locationId      Int       @unique
-  groupId         Int
-  createdByUserId Int
+  color PointOfInterestColor @default(BLUE)
+  presences PointOfInterestPresence[]
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  radius      Float
+  isTemporary Boolean   @default(false)
+  endTime     DateTime?
+  locationId  Int       @unique
+  groupId     Int
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -153,7 +190,6 @@ model PointOfInterest {
 
   group    Group    @relation(fields: [groupId], references: [id])
   location Location @relation(fields: [locationId], references: [id])
-  // createdBy       User      @relation(fields: [createdByUserId], references: [id])
 }
 
 model Location {
@@ -168,4 +204,30 @@ model Location {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model MemberNotificationPreference {
+  id Int @id @default(autoincrement())
+  memberId Int
+  type NotificationType
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, type])
+}
+
+model PointOfInterestPresence {
+  id Int @id @default(autoincrement())
+  memberId Int
+  pointOfInterestId Int
+  isInside Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  pointOfInterest PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, pointOfInterestId])
+  @@index([pointOfInterestId])
 }
