@@ -1,90 +1,59 @@
-## 1. Proyecto
+# Bond Backend
 
-Backend monolítico privado para Bond, una plataforma diseñada para coordinar grupos como familias, amigos y equipos de trabajo. Expone una API REST consumida por las aplicaciones oficiales del proyecto.
+## Proyecto
 
-## 2. Objetivo
+Backend monolítico privado para Bond. Expone una API REST y un WebSocket consumidos por las aplicaciones oficiales del proyecto.
 
-Mantener un backend escalable y mantenible. Todas las implementaciones nuevas deben respetar la separación de capas siguiendo los patrones ya existentes antes de introducir nuevas soluciones.
+## Reglas de implementación
 
-## 3. Stack
+- Toda operación de base de datos debe realizarse mediante un Repository.
+- Los Services deben depender de interfaces de Repository, nunca de implementaciones concretas.
+- Los Controllers no deben contener lógica de negocio ni acceso a Prisma.
+- Los Gateways no deben contener lógica de persistencia.
+- Un endpoint debe corresponder a una operación clara del Service.
+- Las operaciones autenticadas deben utilizar `SessionAuthGuard` y el usuario de la sesión actual.
+- No aceptar `userId` desde el body cuando puede obtenerse mediante `CurrentUser`.
+- No exponer entidades ni modelos de Prisma directamente en respuestas HTTP.
+- Utilizar DTOs, Pipes, Validators y Mappers existentes antes de crear alternativas.
+- Mantener las consultas encapsuladas en los Repositories y evitar consultas duplicadas.
+- No usar `any`, `@ts-ignore` ni `@ts-nocheck`.
+- No introducir librerías, abstracciones o patrones nuevos sin una necesidad concreta.
 
-- NestJS
-- Node.js
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- Docker Compose
-- npm
-- Jest
-- ESLint
-- Prettier
+## Configuración y ejecución
 
-## 4. Arquitectura
+Utilizar `.env.example` como referencia y crear un `.env` local sin versionarlo.
 
-El proyecto sigue una Arquitectura en Capas con una separación clara entre Controllers, Services, Repositories e Infrastructure.
+Desde `bond-back`:
 
-```text
-Controller
-    ↓
-Service
-    ↓
-Repository Interface
-    ↓
-Repository
-    ↓
-Prisma
-    ↓
-Database
+```bash
+npm install
+npx prisma generate
+npm run start:dev
 ```
 
-## 5. Convenciones
+Para ejecutar backend y PostgreSQL con Docker Compose:
 
-- Un endpoint corresponde a una única operación del Service.
-- Los Controllers únicamente adaptan la petición HTTP.
-- Los Repositories implementan únicamente persistencia.
-- Los Services dependen de interfaces de Repository, nunca de implementaciones concretas.
-- Mantener la estructura y nomenclatura existente antes de crear nuevos patrones.
+```bash
+docker compose up --build
+```
 
-Convenciones de nombres:
+Para ejecutar solamente PostgreSQL:
 
-- DTOs: `create-group.dto.ts`
-- Controllers: `group.controller.ts`
-- Services: `group.service.ts`
-- Repository Interface: `IGroupRepository`
-- Repository: `GroupRepository`
-- Variables: `camelCase`
-- Clases: `PascalCase`
-- Archivos: `kebab-case`
+```bash
+docker compose up postgres -d
+```
 
-## 6. Reglas obligatorias
+## Validación
 
-- Toda operación sobre la base de datos debe realizarse mediante un Repository.
-- No exponer entidades o modelos de base de datos directamente en las respuestas HTTP.
+Ejecutar las validaciones relacionadas con el cambio:
 
-## 7. Base de datos
+```bash
+npm run build
+npm test -- --runInBand
+npm run test:e2e
+npm run test:cov
+npm run lint
+npm run format
+```
 
-La persistencia se implementa exclusivamente mediante Prisma y PostgreSQL.
-
-- Utilizar un único `schema.prisma`.
-- Mantener las consultas encapsuladas en los Repositories.
-- Evitar consultas duplicadas.
-- Mantener las migraciones consistentes con el modelo de datos.
-
-## 8. Comportamiento esperado del agente
-
-Antes de implementar cambios:
-
-- Analizar la estructura y los patrones existentes del módulo.
-- Reutilizar código, Services y Repositories antes de crear nuevos.
-- Mantener consistencia con la arquitectura y las convenciones del proyecto.
-- Limitar los cambios al alcance de la tarea solicitada.
-- No introducir nuevas librerías, patrones o abstracciones sin que se solicite explícitamente.
-- Si existen varias soluciones válidas, elegir la que mejor se adapte al diseño actual del proyecto.
-- Si falta información para implementar correctamente una solución, solicitar aclaraciones en lugar de asumir requisitos.
-
-## 9. Qué NO hacer
-
-- No usar `any`, `@ts-ignore` ni `@ts-nocheck`.
-- No modificar la arquitectura del proyecto.
-- No cambiar nombres, estructura o convenciones existentes.
-- No agregar código innecesario para resolver una tarea simple.
+Si el cambio afecta persistencia, autenticación, REST o WebSocket, ejecutar también las pruebas específicas de ese flujo y validar el consumidor frontend cuando corresponda.
