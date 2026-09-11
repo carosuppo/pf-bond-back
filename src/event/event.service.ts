@@ -24,22 +24,46 @@ export class EventService {
   async getEventsByGroup(
     groupId: number,
     userId: number,
+    year: number,
   ): Promise<EventResponseDto[]> {
-    const member = await this.memberRepository.findByUserAndGroup(
-      userId,
-      groupId,
+    const member = await this.requireMembership(userId, groupId);
+
+    const events = await this.eventRepository.findAllByMemberId(
+      member.id,
+      year,
     );
-    if (!member) {
-      throw new ForbiddenException('No perteneces a este grupo.');
-    }
-    const events = await this.eventRepository.findAllByMemberId(member.id);
+
     return events.map((event) => EventMapper.toResponse(event));
   }
+
   async getEventById(
     eventId: number,
     groupId: number,
     userId: number,
   ): Promise<EventResponseDto> {
+    const event = await this.requireEventMembership(userId, groupId, eventId);
+
+    return EventMapper.toResponse(event);
+  }
+  async setEventLocation(
+    groupId: number,
+    eventId: number,
+    userId: number,
+    latitude: number,
+    longitude: number,
+  ): Promise<EventResponseDto> {
+    await this.requireEventMembership(userId, groupId, eventId);
+
+    const event = await this.eventRepository.setLocation(
+      eventId,
+      latitude,
+      longitude,
+    );
+
+    return EventMapper.toResponse(event);
+  }
+
+  private async requireMembership(userId: number, groupId: number) {
     const member = await this.memberRepository.findByUserAndGroup(
       userId,
       groupId,
@@ -47,6 +71,15 @@ export class EventService {
     if (!member) {
       throw new ForbiddenException('No perteneces a este grupo.');
     }
+    return member;
+  }
+
+  private async requireEventMembership(
+    userId: number,
+    groupId: number,
+    eventId: number,
+  ) {
+    const member = await this.requireMembership(userId, groupId);
     const event = await this.eventRepository.findByIdAndMemberId(
       eventId,
       member.id,
@@ -54,6 +87,6 @@ export class EventService {
     if (!event) {
       throw new NotFoundException('El evento no existe.');
     }
-    return EventMapper.toResponse(event);
+    return event;
   }
 }

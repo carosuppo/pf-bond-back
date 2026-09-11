@@ -102,6 +102,7 @@ model Event {
   startAt         DateTime
   endAt           DateTime?
   groupId         Int
+  locationId      Int?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -109,6 +110,7 @@ model Event {
 
   group Group @relation(fields: [groupId], references: [id])
   members EventMember[]
+  location Location? @relation(fields: [locationId], references: [id])
 }
 
 model EventMember {
@@ -165,6 +167,7 @@ model Location {
   lastSeenAt      DateTime?
   user            User?
   pointOfInterest PointOfInterest?
+  events           Event[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
