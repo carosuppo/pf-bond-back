@@ -5,4 +5,8 @@ export class EventResponseDto {
   startAt!: Date;
   endAt?: Date | null;
   memberIds!: number[];
+  location!: {
+    latitude: number;
+    longitude: number;
+  } | null;
 }

@@ -4,13 +4,17 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import { CreateEventDto } from './dto/create-event.dto';
+import { EventQueryDto } from './dto/event-query.dto';
 import { EventResponseDto } from './dto/event-response.dto';
+import { SetEventLocationDto } from './dto/set-event-location.dto';
 import { EventService } from './event.service';
 
 @UseGuards(SessionAuthGuard)
@@ -30,9 +34,10 @@ export class EventController {
   @Get()
   getAll(
     @Param('groupId', ParseIntPipe) groupId: number,
+    @Query() query: EventQueryDto,
     @CurrentUser() userId: number,
   ): Promise<EventResponseDto[]> {
-    return this.eventService.getEventsByGroup(groupId, userId);
+    return this.eventService.getEventsByGroup(groupId, userId, query.year);
   }
 
   @Post()
@@ -42,5 +47,21 @@ export class EventController {
     @CurrentUser() userId: number,
   ): Promise<EventResponseDto> {
     return this.eventService.createEvent(dto, groupId, userId);
+  }
+
+  @Patch(':id/location')
+  setLocation(
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+    @Body() dto: SetEventLocationDto,
+  ): Promise<EventResponseDto> {
+    return this.eventService.setEventLocation(
+      groupId,
+      id,
+      userId,
+      dto.latitude,
+      dto.longitude,
+    );
   }
 }

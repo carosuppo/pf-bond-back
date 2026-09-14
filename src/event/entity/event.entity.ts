@@ -6,4 +6,8 @@ export interface EventEntity {
   endAt?: Date | null;
   groupId: number;
   memberIds: number[];
+  location: {
+    latitude: number;
+    longitude: number;
+  } | null;
 }
