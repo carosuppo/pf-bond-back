@@ -12,6 +12,7 @@ export class EventMapper {
       startAt: event.startAt,
       endAt: event.endAt,
       memberIds: event.memberIds,
+      location: event.location,
     };
   }
 
