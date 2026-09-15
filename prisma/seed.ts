@@ -137,3 +137,6 @@ main()
 // npx prisma db seed
 
 // Para ver la BD: docker exec -it bond-back npx prisma studio --port 5555 --browser none
+
+// $env:DATABASE_URL="postgresql://postgres:root@localhost:5433/bond?schema=public"
+// npx prisma studio --port 5555 --browser none
