@@ -32,4 +32,21 @@ describe('AccountDeletionService', () => {
     await expect(service.deleteAccount(7)).rejects.toThrow('rollback');
     expect(emit).not.toHaveBeenCalled();
   });
+
+  it('keeps the committed deletion successful when event delivery throws', async () => {
+    const deleteAccount = jest.fn().mockResolvedValue([]);
+    const emit = jest.fn().mockImplementation(() => {
+      throw new Error('socket failure');
+    });
+    const service = new AccountDeletionService({ deleteAccount }, {
+      emit,
+    } as unknown as EventEmitter2);
+
+    await expect(service.deleteAccount(7)).resolves.toBeUndefined();
+    expect(deleteAccount).toHaveBeenCalledWith(7);
+    expect(emit).toHaveBeenCalledWith(ACCOUNT_DELETED_EVENT, {
+      userId: 7,
+      removedMemberships: [],
+    });
+  });
 });

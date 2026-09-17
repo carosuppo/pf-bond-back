@@ -198,4 +198,38 @@ describe('LocationGateway', () => {
     expect(recipient.close).not.toHaveBeenCalled();
     gateway.onModuleDestroy();
   });
+
+  it('continues closing sockets when publishing or another socket fails', async () => {
+    const authenticationService = {
+      authenticate: jest
+        .fn()
+        .mockResolvedValueOnce({ sessionId: 1, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 2, user: { id: 7 } }),
+    } as unknown as SessionAuthenticationService;
+    const events = new GroupEventService();
+    const gateway = new LocationGateway(
+      authenticationService,
+      {} as LocationService,
+      events,
+    );
+    const first = makeClient();
+    const second = makeClient();
+    await gateway.authenticate(first.client, { sessionToken: 'first' });
+    await gateway.authenticate(second.client, { sessionToken: 'second' });
+    jest.spyOn(events, 'publish').mockImplementation(() => {
+      throw new Error('publish failure');
+    });
+    first.close.mockImplementation(() => {
+      throw new Error('close failure');
+    });
+
+    expect(() =>
+      gateway.disconnectDeletedUser({
+        userId: 7,
+        removedMemberships: [{ groupId: 5, memberId: 3 }],
+      }),
+    ).not.toThrow();
+    expect(first.close).toHaveBeenCalledWith(1008, 'Account deleted');
+    expect(second.close).toHaveBeenCalledWith(1008, 'Account deleted');
+  });
 });

@@ -1,4 +1,4 @@
-import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -31,6 +31,8 @@ export class LocationGateway
     OnModuleInit,
     OnModuleDestroy
 {
+  private readonly logger = new Logger(LocationGateway.name);
+
   private readonly authenticatedUsers = new Map<WebSocket, number>();
 
   private readonly groupSubscriptions = new Map<number, Set<WebSocket>>();
@@ -77,20 +79,34 @@ export class LocationGateway
   @OnEvent(ACCOUNT_DELETED_EVENT)
   disconnectDeletedUser(event: AccountDeletedEvent): void {
     for (const membership of event.removedMemberships) {
-      this.groupEventService.publish({
-        event: 'memberLocationRemoved',
-        data: {
-          groupId: membership.groupId,
-          memberId: membership.memberId,
-          userId: event.userId,
-          actorUserId: event.userId,
-        },
-      });
+      try {
+        this.groupEventService.publish({
+          event: 'memberLocationRemoved',
+          data: {
+            groupId: membership.groupId,
+            memberId: membership.memberId,
+            userId: event.userId,
+            actorUserId: event.userId,
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          'Failed to publish removed member after account deletion',
+          error,
+        );
+      }
     }
     for (const [client, authenticatedUserId] of this.authenticatedUsers) {
       if (authenticatedUserId !== event.userId) continue;
       this.handleDisconnect(client);
-      client.close(1008, 'Account deleted');
+      try {
+        client.close(1008, 'Account deleted');
+      } catch (error) {
+        this.logger.error(
+          'Failed to close socket after account deletion',
+          error,
+        );
+      }
     }
   }
 

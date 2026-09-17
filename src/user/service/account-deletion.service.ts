@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
   IAccountDeletionRepository,
@@ -14,6 +14,8 @@ export interface AccountDeletedEvent {
 
 @Injectable()
 export class AccountDeletionService {
+  private readonly logger = new Logger(AccountDeletionService.name);
+
   constructor(
     @Inject('accountDeletionRepository')
     private readonly repository: IAccountDeletionRepository,
@@ -22,6 +24,13 @@ export class AccountDeletionService {
 
   async deleteAccount(userId: number): Promise<void> {
     const removedMemberships = await this.repository.deleteAccount(userId);
-    this.events.emit(ACCOUNT_DELETED_EVENT, { userId, removedMemberships });
+    try {
+      this.events.emit(ACCOUNT_DELETED_EVENT, { userId, removedMemberships });
+    } catch (error) {
+      this.logger.error(
+        'Account deletion side effect failed after commit',
+        error,
+      );
+    }
   }
 }

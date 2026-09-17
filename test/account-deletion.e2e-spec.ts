@@ -558,4 +558,42 @@ describe('DELETE /user/me (PostgreSQL)', () => {
         .expect(409);
     },
   );
+
+  testDb('registra, verifica y elimina una cuenta sin grupos', async () => {
+    const email = `sin-grupos-${randomUUID()}@bond.test`;
+    await request(app.getHttpServer())
+      .post('/user')
+      .send({ name: 'Sin grupos', email, password })
+      .expect(201);
+    const verificationUrl = sendVerification.mock.calls[0][2];
+    const verificationToken = new URL(verificationUrl).searchParams.get(
+      'token',
+    );
+    expect(verificationToken).toBeTruthy();
+    await request(app.getHttpServer())
+      .get('/user/verify-email')
+      .query({ token: verificationToken })
+      .expect(200);
+    const login = await request(app.getHttpServer())
+      .post('/user/login')
+      .send({ email, password })
+      .expect(200);
+    const token = (login.body as { sessionToken: string }).sessionToken;
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    expect(await prisma.member.count({ where: { userId: user.id } })).toBe(0);
+
+    await request(app.getHttpServer())
+      .delete('/user/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+    expect(await prisma.user.findUnique({ where: { id: user.id } })).toBeNull();
+    await request(app.getHttpServer())
+      .post('/user/login')
+      .send({ email, password })
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/user/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+  });
 });
