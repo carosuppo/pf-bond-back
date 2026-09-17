@@ -8,7 +8,7 @@ export class PrismaNotificationPreferencesRepository implements INotificationPre
   constructor(private readonly prisma: PrismaService) {}
   find(userId: number) {
     return this.prisma.user.findUniqueOrThrow({
-      where: { id: userId, deletedAt: null },
+      where: { id: userId },
       select: {
         notificationsEnabled: true,
         members: {
@@ -27,7 +27,7 @@ export class PrismaNotificationPreferencesRepository implements INotificationPre
   }
   async updateGlobal(userId: number, enabled: boolean): Promise<void> {
     await this.prisma.user.update({
-      where: { id: userId, deletedAt: null },
+      where: { id: userId },
       data: { notificationsEnabled: enabled },
     });
   }
@@ -41,7 +41,6 @@ export class PrismaNotificationPreferencesRepository implements INotificationPre
         userId,
         groupId,
         group: { deletedAt: null },
-        user: { deletedAt: null },
       },
       data: { notificationsEnabled: enabled },
     });
@@ -59,7 +58,6 @@ export class PrismaNotificationPreferencesRepository implements INotificationPre
           userId,
           groupId,
           group: { deletedAt: null },
-          user: { deletedAt: null },
         },
         select: { id: true },
       });

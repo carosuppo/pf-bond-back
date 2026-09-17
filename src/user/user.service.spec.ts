@@ -20,11 +20,11 @@ describe('UserService.update', () => {
     name: 'Nombre',
     email: 'usuario@mail.com',
     passwordHash: 'hash',
+    notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     ...overrides,
   });
 
@@ -67,6 +67,7 @@ describe('UserService.update', () => {
       name: updatedUser.name,
       email: updatedUser.email,
       locationId: updatedUser.locationId,
+      groups: [],
       createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt,
     });
@@ -143,11 +144,11 @@ describe('UserService.changePassword', () => {
     name: 'Nombre',
     email: 'usuario@mail.com',
     passwordHash,
+    notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     ...overrides,
   });
 
@@ -237,11 +238,11 @@ describe('UserService.getProfile', () => {
     name: 'Nombre',
     email: 'usuario@mail.com',
     passwordHash: 'hash',
+    notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     ...overrides,
   });
 
@@ -278,7 +279,6 @@ describe('UserService.getProfile', () => {
       id: user.id,
       name: user.name,
       email: user.email,
-      profilePhoto: null,
       groups,
     });
   });

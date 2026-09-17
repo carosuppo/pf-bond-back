@@ -122,7 +122,6 @@ describe('Presence persistence and reset', () => {
       expect.objectContaining({
         where: {
           userId: 7,
-          user: { deletedAt: null },
           group: { deletedAt: null },
           OR: [
             { locationSharingEnabled: true },

@@ -22,9 +22,6 @@ export class UserPrismaRepository implements IUserRepository {
 
   async findAll(): Promise<User[]> {
     return this.prismaService.user.findMany({
-      where: {
-        deletedAt: null,
-      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -32,21 +29,11 @@ export class UserPrismaRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.prismaService.user.findFirst({
-      where: {
-        email,
-        deletedAt: null,
-      },
-    });
+    return this.prismaService.user.findUnique({ where: { email } });
   }
 
   async findById(userId: number): Promise<User | null> {
-    return this.prismaService.user.findFirst({
-      where: {
-        id: userId,
-        deletedAt: null,
-      },
-    });
+    return this.prismaService.user.findUnique({ where: { id: userId } });
   }
 
   async markEmailAsVerified(userId: number): Promise<User> {

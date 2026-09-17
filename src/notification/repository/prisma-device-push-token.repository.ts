@@ -36,7 +36,7 @@ export class PrismaDevicePushTokenRepository implements IDevicePushTokenReposito
     return this.prismaService.devicePushToken.findMany({
       where: {
         userId: { in: userIds },
-        user: { deletedAt: null, notificationsEnabled: true },
+        user: { notificationsEnabled: true },
       },
       select: { token: true, userId: true },
     });
@@ -57,7 +57,7 @@ export class PrismaDevicePushTokenRepository implements IDevicePushTokenReposito
         userId:
           excludedUserId === undefined ? undefined : { not: excludedUserId },
         group: { deletedAt: null },
-        user: { deletedAt: null, notificationsEnabled: true },
+        user: { notificationsEnabled: true },
       },
       select: { userId: true },
     });
@@ -74,7 +74,6 @@ export class PrismaDevicePushTokenRepository implements IDevicePushTokenReposito
         groupId,
         userId: actorUserId,
         group: { deletedAt: null },
-        user: { deletedAt: null },
       },
       select: {
         group: { select: { name: true } },

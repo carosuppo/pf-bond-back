@@ -14,8 +14,6 @@ export interface IUserRepository {
 
   markEmailAsVerified(userId: number): Promise<User>;
 
-  findById(userId: number): Promise<User | null>;
-
   findGroupsByUserId(userId: number): Promise<UserProfileGroupEntity[]>;
 
   update(userId: number, updateUserData: UpdateUserData): Promise<User>;

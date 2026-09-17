@@ -30,7 +30,7 @@ describe('Notification recipient persistence', () => {
           groupId: 3,
           userId: { not: 7 },
           group: { deletedAt: null },
-          user: { deletedAt: null, notificationsEnabled: true },
+          user: { notificationsEnabled: true },
           notificationsEnabled: true,
           notificationPreferences: { none: { type, enabled: false } },
         },
@@ -44,7 +44,7 @@ describe('Notification recipient persistence', () => {
       expect.objectContaining({
         where: {
           userId: { in: [7, 8] },
-          user: { deletedAt: null, notificationsEnabled: true },
+          user: { notificationsEnabled: true },
         },
       }),
     );
@@ -52,7 +52,7 @@ describe('Notification recipient persistence', () => {
   it('loads only memberships of active groups', async () => {
     await new PrismaNotificationPreferencesRepository(prisma).find(7);
     expect(userFind.mock.calls[0][0]).toMatchObject({
-      where: { id: 7, deletedAt: null },
+      where: { id: 7 },
       select: { members: { where: { group: { deletedAt: null } } } },
     });
   });

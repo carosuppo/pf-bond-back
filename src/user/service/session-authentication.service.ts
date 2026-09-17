@@ -23,7 +23,7 @@ export class SessionAuthenticationService {
     const tokenHash = createHash('sha256').update(sessionToken).digest('hex');
     const session =
       await this.userSessionRepository.findActiveByTokenHash(tokenHash);
-    if (!session || session.user.deletedAt) {
+    if (!session) {
       throw new UnauthorizedException('Invalid session.');
     }
     return {
