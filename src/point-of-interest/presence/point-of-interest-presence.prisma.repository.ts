@@ -12,7 +12,6 @@ export class PointOfInterestPresencePrismaRepository implements IPointOfInterest
     const members = await this.prisma.member.findMany({
       where: {
         userId,
-        user: { deletedAt: null },
         group: { deletedAt: null },
         OR: [
           { locationSharingEnabled: true },
@@ -63,7 +62,6 @@ export class PointOfInterestPresencePrismaRepository implements IPointOfInterest
       const member = await tx.member.findFirst({
         where: {
           id: candidate.memberId,
-          user: { deletedAt: null },
           group: { deletedAt: null },
           OR: [
             { locationSharingEnabled: true },

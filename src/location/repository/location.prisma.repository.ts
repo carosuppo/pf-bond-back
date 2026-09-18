@@ -88,9 +88,6 @@ export class LocationPrismaRepository implements ILocationRepository {
     const members = await this.prismaService.member.findMany({
       where: {
         userId,
-        user: {
-          deletedAt: null,
-        },
         group: {
           deletedAt: null,
         },
@@ -118,9 +115,6 @@ export class LocationPrismaRepository implements ILocationRepository {
       where: {
         userId,
         groupId,
-        user: {
-          deletedAt: null,
-        },
         group: {
           deletedAt: null,
         },
@@ -162,7 +156,6 @@ export class LocationPrismaRepository implements ILocationRepository {
           not: excludedUserId,
         },
         user: {
-          deletedAt: null,
           currentLocation: {
             isNot: null,
           },

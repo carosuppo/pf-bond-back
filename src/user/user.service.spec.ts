@@ -11,10 +11,10 @@ import { MailService } from '../mail/mail.service';
 import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ProfilePhotoFile } from './interface/profile-photo-file.interface';
-import { SupabaseStorageService } from './storage/supabase-storage.service';
 import type { IEmailVerificationTokenRepository } from './repository/email-verification-token.repository.interface';
 import type { IUserSessionRepository } from './repository/user-session.repository.interface';
 import type { IUserRepository } from './repository/user.repository.interface';
+import { SupabaseStorageService } from './storage/supabase-storage.service';
 import { UserService } from './user.service';
 
 describe('UserService.update', () => {
@@ -25,11 +25,11 @@ describe('UserService.update', () => {
     passwordHash: 'hash',
     profilePhoto: null,
     profilePhotoPath: null,
+    notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     ...overrides,
   });
 
@@ -153,11 +153,11 @@ describe('UserService.changePassword', () => {
     passwordHash,
     profilePhoto: null,
     profilePhotoPath: null,
+    notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     ...overrides,
   });
 
@@ -365,11 +365,11 @@ describe('UserService.getProfile', () => {
     passwordHash: 'hash',
     profilePhoto: null,
     profilePhotoPath: null,
+    notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     ...overrides,
   });
 
@@ -407,7 +407,6 @@ describe('UserService.getProfile', () => {
       id: user.id,
       name: user.name,
       email: user.email,
-      profilePhoto: null,
       groups,
     });
   });

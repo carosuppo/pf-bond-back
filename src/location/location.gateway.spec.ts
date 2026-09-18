@@ -7,12 +7,13 @@ import { SessionAuthenticationService } from '../user/service/session-authentica
 describe('LocationGateway', () => {
   const makeClient = () => {
     const send = jest.fn();
+    const close = jest.fn();
     const client = {
       send,
-      close: jest.fn(),
+      close,
       readyState: WebSocket.OPEN,
     } as unknown as WebSocket;
-    return { client, send };
+    return { client, send, close };
   };
 
   it('does not subscribe an unauthenticated connection', async () => {
@@ -140,5 +141,95 @@ describe('LocationGateway', () => {
     expect(actor.send.mock.calls).toHaveLength(0);
     expect(recipient.send).toHaveBeenCalledTimes(1);
     gateway.onModuleDestroy();
+  });
+
+  it('closes every socket of a deleted account and removes its subscriptions', async () => {
+    const authenticationService = {
+      authenticate: jest
+        .fn()
+        .mockResolvedValueOnce({ sessionId: 1, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 2, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 3, user: { id: 8 } }),
+    } as unknown as SessionAuthenticationService;
+    const locationService = {
+      verifyGroupMembership: jest.fn().mockResolvedValue(undefined),
+    } as unknown as LocationService;
+    const events = new GroupEventService();
+    const gateway = new LocationGateway(
+      authenticationService,
+      locationService,
+      events,
+    );
+    const first = makeClient();
+    const second = makeClient();
+    const recipient = makeClient();
+    gateway.onModuleInit();
+    await gateway.authenticate(first.client, { sessionToken: 'first' });
+    await gateway.authenticate(second.client, { sessionToken: 'second' });
+    await gateway.authenticate(recipient.client, { sessionToken: 'recipient' });
+    await gateway.subscribeGroup(first.client, { groupId: 5 });
+    await gateway.subscribeGroup(second.client, { groupId: 5 });
+    await gateway.subscribeGroup(recipient.client, { groupId: 5 });
+    first.send.mockClear();
+    second.send.mockClear();
+    recipient.send.mockClear();
+
+    gateway.disconnectDeletedUser({
+      userId: 7,
+      removedMemberships: [{ groupId: 5, memberId: 3 }],
+    });
+    expect(recipient.send).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: 'memberLocationRemoved',
+        data: { groupId: 5, memberId: 3, userId: 7, actorUserId: 7 },
+      }),
+    );
+    recipient.send.mockClear();
+    events.publish({
+      event: 'pointOfInterestUpdated',
+      data: { groupId: 5, pointOfInterestId: 12, actorUserId: 9 },
+    });
+
+    expect(first.close).toHaveBeenCalledWith(1008, 'Account deleted');
+    expect(second.close).toHaveBeenCalledWith(1008, 'Account deleted');
+    expect(first.send).not.toHaveBeenCalled();
+    expect(second.send).not.toHaveBeenCalled();
+    expect(recipient.send).toHaveBeenCalledTimes(1);
+    expect(recipient.close).not.toHaveBeenCalled();
+    gateway.onModuleDestroy();
+  });
+
+  it('continues closing sockets when publishing or another socket fails', async () => {
+    const authenticationService = {
+      authenticate: jest
+        .fn()
+        .mockResolvedValueOnce({ sessionId: 1, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 2, user: { id: 7 } }),
+    } as unknown as SessionAuthenticationService;
+    const events = new GroupEventService();
+    const gateway = new LocationGateway(
+      authenticationService,
+      {} as LocationService,
+      events,
+    );
+    const first = makeClient();
+    const second = makeClient();
+    await gateway.authenticate(first.client, { sessionToken: 'first' });
+    await gateway.authenticate(second.client, { sessionToken: 'second' });
+    jest.spyOn(events, 'publish').mockImplementation(() => {
+      throw new Error('publish failure');
+    });
+    first.close.mockImplementation(() => {
+      throw new Error('close failure');
+    });
+
+    expect(() =>
+      gateway.disconnectDeletedUser({
+        userId: 7,
+        removedMemberships: [{ groupId: 5, memberId: 3 }],
+      }),
+    ).not.toThrow();
+    expect(first.close).toHaveBeenCalledWith(1008, 'Account deleted');
+    expect(second.close).toHaveBeenCalledWith(1008, 'Account deleted');
   });
 });

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -32,10 +33,14 @@ import { NormalizeLoginUserPipe } from './pipe/normalize-login-user.pipe';
 import { NormalizeUpdateUserPipe } from './pipe/normalize-update-user.pipe';
 import { NormalizeUserPipe } from './pipe/normalize-user.pipe';
 import { UserService } from './user.service';
+import { AccountDeletionService } from './service/account-deletion.service';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly accountDeletionService: AccountDeletionService,
+  ) {}
 
   @Post('resend-verification-email')
   @HttpCode(HttpStatus.OK)
@@ -89,6 +94,13 @@ export class UserController {
   @UseGuards(SessionAuthGuard)
   me(@Req() request: AuthenticatedRequest): UserResponseDto {
     return request.user!;
+  }
+
+  @Delete('me')
+  @UseGuards(SessionAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteMe(@CurrentUser() userId: number): Promise<void> {
+    await this.accountDeletionService.deleteAccount(userId);
   }
 
   @Get('profile')

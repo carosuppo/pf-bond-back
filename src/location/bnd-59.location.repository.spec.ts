@@ -31,7 +31,6 @@ describe('BND-59 - Visualizar ubicación de miembros del grupo - Repository', ()
         },
 
         user: {
-          deletedAt: null,
           currentLocation: {
             isNot: null,
           },

@@ -1,4 +1,4 @@
-import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -6,9 +6,12 @@ import {
   WebSocketGateway,
 } from '@nestjs/websockets';
 import { Subscription } from 'rxjs';
+import { OnEvent } from '@nestjs/event-emitter';
 import { WebSocket } from 'ws';
 import { GroupEvent, GroupEventService } from '../group/group-event.service';
 import { SessionAuthenticationService } from '../user/service/session-authentication.service';
+import { ACCOUNT_DELETED_EVENT } from '../user/service/account-deletion.service';
+import type { AccountDeletedEvent } from '../user/service/account-deletion.service';
 import { AuthenticateLocationSocketDto } from './dto/authenticate-location-socket.dto';
 import { SubscribeGroupDto } from './dto/subscribe-group.dto';
 import { LocationService } from './location.service';
@@ -28,6 +31,8 @@ export class LocationGateway
     OnModuleInit,
     OnModuleDestroy
 {
+  private readonly logger = new Logger(LocationGateway.name);
+
   private readonly authenticatedUsers = new Map<WebSocket, number>();
 
   private readonly groupSubscriptions = new Map<number, Set<WebSocket>>();
@@ -67,6 +72,40 @@ export class LocationGateway
 
       if (clients.size === 0) {
         this.groupSubscriptions.delete(groupId);
+      }
+    }
+  }
+
+  @OnEvent(ACCOUNT_DELETED_EVENT)
+  disconnectDeletedUser(event: AccountDeletedEvent): void {
+    for (const membership of event.removedMemberships) {
+      try {
+        this.groupEventService.publish({
+          event: 'memberLocationRemoved',
+          data: {
+            groupId: membership.groupId,
+            memberId: membership.memberId,
+            userId: event.userId,
+            actorUserId: event.userId,
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          'Failed to publish removed member after account deletion',
+          error,
+        );
+      }
+    }
+    for (const [client, authenticatedUserId] of this.authenticatedUsers) {
+      if (authenticatedUserId !== event.userId) continue;
+      this.handleDisconnect(client);
+      try {
+        client.close(1008, 'Account deleted');
+      } catch (error) {
+        this.logger.error(
+          'Failed to close socket after account deletion',
+          error,
+        );
       }
     }
   }

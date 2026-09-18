@@ -108,10 +108,6 @@ export class UserService {
       );
     }
 
-    if (verificationToken.user.deletedAt) {
-      throw new BadRequestException('El usuario no existe.');
-    }
-
     if (!verificationToken.user.emailVerifiedAt) {
       await this.userRepository.markEmailAsVerified(verificationToken.userId);
     }
