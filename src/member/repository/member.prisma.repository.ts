@@ -47,6 +47,7 @@ export class MemberPrismaRepository implements IMemberRepository {
         user: {
           select: {
             name: true,
+            profilePhoto: true,
             currentLocation: {
               select: {
                 lastSeenAt: true,
@@ -65,6 +66,7 @@ export class MemberPrismaRepository implements IMemberRepository {
       memberId: member.id,
       groupId: member.groupId,
       name: member.user.name,
+      profilePhoto: member.user.profilePhoto,
       lastSeenAt: member.user.currentLocation?.lastSeenAt ?? null,
     };
   }

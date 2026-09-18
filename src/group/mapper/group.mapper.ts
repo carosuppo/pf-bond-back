@@ -54,6 +54,7 @@ export class GroupMapper {
         id: member.id,
         idUser: member.idUser,
         name: member.name,
+        profilePhoto: member.profilePhoto,
         role: member.role,
       })),
     };

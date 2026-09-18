@@ -21,4 +21,10 @@ export interface IUserRepository {
   update(userId: number, updateUserData: UpdateUserData): Promise<User>;
 
   updatePassword(userId: number, passwordHash: string): Promise<User>;
+
+  updateProfilePhoto(
+    userId: number,
+    profilePhoto: string,
+    profilePhotoPath: string,
+  ): Promise<User>;
 }

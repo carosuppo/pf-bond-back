@@ -21,6 +21,7 @@ export class MemberMapper {
     return {
       memberId: entity.memberId,
       name: entity.name,
+      profilePhoto: entity.profilePhoto,
       lastSeenAt: entity.lastSeenAt,
     };
   }

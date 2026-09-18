@@ -10,8 +10,12 @@ import {
   Query,
   Req,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../common/decorators/user.decorator';
+import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
@@ -23,6 +27,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { SessionAuthGuard } from './guard/session-auth.guard';
 import type { AuthenticatedRequest } from './interface/authenticated-request.interface';
+import type { ProfilePhotoFile } from './interface/profile-photo-file.interface';
 import { NormalizeLoginUserPipe } from './pipe/normalize-login-user.pipe';
 import { NormalizeUpdateUserPipe } from './pipe/normalize-update-user.pipe';
 import { NormalizeUserPipe } from './pipe/normalize-user.pipe';
@@ -109,5 +114,21 @@ export class UserController {
     @CurrentUser() userId: number,
   ): Promise<UserResponseDto> {
     return await this.userService.update(userId, updateUserDto);
+  }
+
+  @Patch('profile-photo')
+  @UseGuards(SessionAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: MAX_PROFILE_PHOTO_SIZE,
+      },
+    }),
+  )
+  async updateProfilePhoto(
+    @UploadedFile() file: ProfilePhotoFile | undefined,
+    @CurrentUser() userId: number,
+  ): Promise<UserResponseDto> {
+    return this.userService.updateProfilePhoto(userId, file);
   }
 }

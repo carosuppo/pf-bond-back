@@ -71,6 +71,7 @@ export class GroupPrismaRepository implements IGroupRepository {
               select: {
                 id: true,
                 name: true,
+                profilePhoto: true,
               },
             },
           },
@@ -92,6 +93,7 @@ export class GroupPrismaRepository implements IGroupRepository {
         id: member.id,
         idUser: member.user.id,
         name: member.user.name,
+        profilePhoto: member.user.profilePhoto,
         role: member.role,
       })),
     };

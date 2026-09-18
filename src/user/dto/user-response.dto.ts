@@ -4,6 +4,7 @@ export class UserResponseDto {
   id!: number;
   name!: string;
   email!: string;
+  profilePhoto!: string | null;
   locationId?: number | null;
   groups!: GetGroupsResponseDto[];
   createdAt?: Date;

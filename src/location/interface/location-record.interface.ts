@@ -18,6 +18,7 @@ export interface SharingRecord {
   groupId: number;
   userId: number;
   userName: string;
+  profilePhoto: string | null;
   locationSharingEnabled: boolean;
   shareLocationMandatorily: boolean;
   currentLocation: LocationRecord | null;
@@ -27,5 +28,6 @@ export interface VisibleMemberLocationRecord {
   memberId: number;
   userId: number;
   name: string;
+  profilePhoto: string | null;
   location: LocationRecord;
 }

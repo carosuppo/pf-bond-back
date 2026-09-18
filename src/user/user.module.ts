@@ -6,6 +6,7 @@ import { SessionAuthGuard } from './guard/session-auth.guard';
 import { EmailVerificationTokenPrismaRepository } from './repository/email-verification-token.prisma.repository';
 import { UserSessionPrismaRepository } from './repository/user-session.prisma.repository';
 import { UserPrismaRepository } from './repository/user.prisma.repository';
+import { SupabaseStorageService } from './storage/supabase-storage.service';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { SessionAuthenticationService } from './service/session-authentication.service';
@@ -15,6 +16,7 @@ import { SessionAuthenticationService } from './service/session-authentication.s
   controllers: [UserController],
   providers: [
     UserService,
+    SupabaseStorageService,
     PrismaService,
     SessionAuthGuard,
     SessionAuthenticationService,

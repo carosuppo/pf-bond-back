@@ -98,8 +98,10 @@ export class LocationPrismaRepository implements ILocationRepository {
       include: {
         group: true,
         user: {
-          include: {
+          select: {
+            name: true,
             currentLocation: true,
+            profilePhoto: true,
           },
         },
       },
@@ -195,6 +197,7 @@ export class LocationPrismaRepository implements ILocationRepository {
               memberId: member.id,
               userId: member.userId,
               name: member.user.name,
+              profilePhoto: member.user.profilePhoto,
               location: member.user.currentLocation,
             },
           ]
@@ -214,6 +217,7 @@ export class LocationPrismaRepository implements ILocationRepository {
 
     user: {
       name: string;
+      profilePhoto: string | null;
       currentLocation: LocationRecord | null;
     };
   }): SharingRecord {
@@ -222,6 +226,7 @@ export class LocationPrismaRepository implements ILocationRepository {
       groupId: member.groupId,
       userId: member.userId,
       userName: member.user.name,
+      profilePhoto: member.user.profilePhoto,
       locationSharingEnabled: member.locationSharingEnabled,
       shareLocationMandatorily: member.group.shareLocationMandatorily,
       currentLocation: member.user.currentLocation,

@@ -10,8 +10,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
+import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
@@ -21,17 +22,24 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserAuthResponseDto } from './dto/user-auth-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ProfilePhotoFile } from './interface/profile-photo-file.interface';
 import {
   SessionTokenData,
   UserSessionMapper,
 } from './mapper/user-session.mapper';
 import { UserMapper } from './mapper/user.mapper';
+import { SupabaseStorageService } from './storage/supabase-storage.service';
 import type { IEmailVerificationTokenRepository } from './repository/email-verification-token.repository.interface';
 import type { IUserSessionRepository } from './repository/user-session.repository.interface';
 import type { IUserRepository } from './repository/user.repository.interface';
 
 @Injectable()
 export class UserService {
+  private static readonly profilePhotoMimeTypes = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ]);
   private readonly sessionDurationInDays = 90;
   private readonly emailVerificationDurationInHours = 24;
 
@@ -47,6 +55,7 @@ export class UserService {
 
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly supabaseStorageService: SupabaseStorageService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<MessageResponseDto> {
@@ -233,6 +242,71 @@ export class UserService {
     };
   }
 
+  async updateProfilePhoto(
+    userId: number,
+    file: ProfilePhotoFile | undefined,
+  ): Promise<UserResponseDto> {
+    if (!file || !file.buffer || !file.mimetype) {
+      throw new BadRequestException('Debes seleccionar una imagen.');
+    }
+
+    if (file.buffer.length > MAX_PROFILE_PHOTO_SIZE) {
+      throw new BadRequestException('La imagen no puede superar los 5 MB.');
+    }
+
+    if (
+      !UserService.profilePhotoMimeTypes.has(file.mimetype) ||
+      !this.hasValidImageSignature(file.buffer, file.mimetype)
+    ) {
+      throw new BadRequestException(
+        'El formato de la imagen debe ser JPEG, PNG o WebP.',
+      );
+    }
+
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    const extension =
+      file.mimetype === 'image/jpeg'
+        ? 'jpg'
+        : file.mimetype === 'image/png'
+          ? 'png'
+          : 'webp';
+    const profilePhotoPath = `users/${userId}/${randomUUID()}.${extension}`;
+    const profilePhoto = await this.supabaseStorageService.upload(
+      profilePhotoPath,
+      file.buffer,
+      file.mimetype,
+    );
+
+    let updatedUser: User;
+
+    try {
+      updatedUser = await this.userRepository.updateProfilePhoto(
+        userId,
+        profilePhoto,
+        profilePhotoPath,
+      );
+    } catch (error: unknown) {
+      await this.supabaseStorageService
+        .remove(profilePhotoPath)
+        .catch(() => undefined);
+
+      throw error;
+    }
+
+    if (user.profilePhotoPath) {
+      await this.supabaseStorageService
+        .remove(user.profilePhotoPath)
+        .catch(() => undefined);
+    }
+
+    return UserMapper.toResponseDto(updatedUser);
+  }
+
   async login(loginUserDto: LoginUserDto): Promise<UserAuthResponseDto> {
     const user = await this.userRepository.findByEmail(loginUserDto.email);
 
@@ -317,6 +391,30 @@ export class UserService {
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private hasValidImageSignature(buffer: Buffer, mimetype: string): boolean {
+    if (mimetype === 'image/jpeg') {
+      return (
+        buffer.length >= 3 &&
+        buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
+      );
+    }
+
+    if (mimetype === 'image/png') {
+      return (
+        buffer.length >= 8 &&
+        buffer
+          .subarray(0, 8)
+          .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      );
+    }
+
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
   }
 
   private getRequiredEnv(key: string): string {

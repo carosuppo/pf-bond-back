@@ -8,7 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../mail/mail.service';
+import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ProfilePhotoFile } from './interface/profile-photo-file.interface';
+import { SupabaseStorageService } from './storage/supabase-storage.service';
 import type { IEmailVerificationTokenRepository } from './repository/email-verification-token.repository.interface';
 import type { IUserSessionRepository } from './repository/user-session.repository.interface';
 import type { IUserRepository } from './repository/user.repository.interface';
@@ -20,6 +23,8 @@ describe('UserService.update', () => {
     name: 'Nombre',
     email: 'usuario@mail.com',
     passwordHash: 'hash',
+    profilePhoto: null,
+    profilePhotoPath: null,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
@@ -37,6 +42,7 @@ describe('UserService.update', () => {
       {} as unknown as IEmailVerificationTokenRepository,
       {} as unknown as MailService,
       {} as unknown as ConfigService,
+      {} as unknown as SupabaseStorageService,
     );
 
   it('actualiza nombre y correo con datos válidos', async () => {
@@ -66,7 +72,9 @@ describe('UserService.update', () => {
       id: updatedUser.id,
       name: updatedUser.name,
       email: updatedUser.email,
+      profilePhoto: updatedUser.profilePhoto,
       locationId: updatedUser.locationId,
+      groups: [],
       createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt,
     });
@@ -143,6 +151,8 @@ describe('UserService.changePassword', () => {
     name: 'Nombre',
     email: 'usuario@mail.com',
     passwordHash,
+    profilePhoto: null,
+    profilePhotoPath: null,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
@@ -160,6 +170,7 @@ describe('UserService.changePassword', () => {
       {} as unknown as IEmailVerificationTokenRepository,
       {} as unknown as MailService,
       {} as unknown as ConfigService,
+      {} as unknown as SupabaseStorageService,
     );
 
   it('cambia la contraseña con una nueva contraseña válida', async () => {
@@ -231,12 +242,129 @@ describe('UserService.changePassword', () => {
   });
 });
 
+describe('UserService.updateProfilePhoto', () => {
+  const buildUser = (overrides: Partial<User> = {}): User => ({
+    id: 1,
+    name: 'Nombre',
+    email: 'usuario@mail.com',
+    passwordHash: 'hash',
+    profilePhoto: null,
+    profilePhotoPath: null,
+    locationId: null,
+    emailVerifiedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+    ...overrides,
+  });
+
+  const createService = (
+    userRepository: Partial<IUserRepository>,
+    storage: Partial<SupabaseStorageService> = {},
+  ): UserService =>
+    new UserService(
+      userRepository as unknown as IUserRepository,
+      {} as unknown as IUserSessionRepository,
+      {} as unknown as IEmailVerificationTokenRepository,
+      {} as unknown as MailService,
+      {} as unknown as ConfigService,
+      storage as unknown as SupabaseStorageService,
+    );
+
+  it('guarda una imagen JPEG válida y la devuelve en la respuesta', async () => {
+    const updatedUser = buildUser({
+      profilePhoto: 'https://supabase.co/profile-new.jpg',
+      profilePhotoPath: 'users/1/new.jpg',
+    });
+    const userRepository: Partial<IUserRepository> = {
+      findById: jest
+        .fn()
+        .mockResolvedValue(buildUser({ profilePhotoPath: 'users/1/old.jpg' })),
+      updateProfilePhoto: jest.fn().mockResolvedValue(updatedUser),
+    };
+    const storage: Partial<SupabaseStorageService> = {
+      upload: jest
+        .fn()
+        .mockResolvedValue('https://supabase.co/profile-new.jpg'),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = createService(userRepository, storage);
+    const file: ProfilePhotoFile = {
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+    };
+
+    const result = await service.updateProfilePhoto(1, file);
+
+    expect(storage.upload).toHaveBeenCalledWith(
+      expect.stringMatching(/^users\/1\/[\w-]+\.jpg$/),
+      file.buffer,
+      file.mimetype,
+    );
+    expect(userRepository.updateProfilePhoto).toHaveBeenCalledWith(
+      1,
+      'https://supabase.co/profile-new.jpg',
+      expect.stringMatching(/^users\/1\/[\w-]+\.jpg$/),
+    );
+    expect(storage.remove).toHaveBeenCalledWith('users/1/old.jpg');
+    expect(result.profilePhoto).toBe('https://supabase.co/profile-new.jpg');
+  });
+
+  it('rechaza un formato no permitido', async () => {
+    const service = createService({});
+    const file: ProfilePhotoFile = {
+      mimetype: 'image/gif',
+      buffer: Buffer.from('GIF89a'),
+    };
+
+    await expect(service.updateProfilePhoto(1, file)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('rechaza una imagen que supera el tamaño máximo', async () => {
+    const service = createService({});
+    const file: ProfilePhotoFile = {
+      mimetype: 'image/jpeg',
+      buffer: Buffer.alloc(MAX_PROFILE_PHOTO_SIZE + 1),
+    };
+
+    await expect(service.updateProfilePhoto(1, file)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('rechaza un archivo cuyo contenido no coincide con su MIME', async () => {
+    const service = createService({});
+    const file: ProfilePhotoFile = {
+      mimetype: 'image/png',
+      buffer: Buffer.from('no es png'),
+    };
+
+    await expect(service.updateProfilePhoto(1, file)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('no modifica la foto actual cuando no se envía un archivo', async () => {
+    const updateProfilePhoto = jest.fn();
+    const service = createService({ updateProfilePhoto });
+
+    await expect(service.updateProfilePhoto(1, undefined)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(updateProfilePhoto).not.toHaveBeenCalled();
+  });
+});
+
 describe('UserService.getProfile', () => {
   const buildUser = (overrides: Partial<User> = {}): User => ({
     id: 1,
     name: 'Nombre',
     email: 'usuario@mail.com',
     passwordHash: 'hash',
+    profilePhoto: null,
+    profilePhotoPath: null,
     locationId: null,
     emailVerifiedAt: new Date(),
     createdAt: new Date(),
@@ -254,6 +382,7 @@ describe('UserService.getProfile', () => {
       {} as unknown as IEmailVerificationTokenRepository,
       {} as unknown as MailService,
       {} as unknown as ConfigService,
+      {} as unknown as SupabaseStorageService,
     );
 
   it('devuelve nombre, correo y listado de grupos del usuario', async () => {

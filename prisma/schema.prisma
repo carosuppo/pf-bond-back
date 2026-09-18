@@ -27,6 +27,8 @@ model User {
   name            String
   email           String    @unique
   passwordHash    String
+  profilePhoto    String?   @db.Text
+  profilePhotoPath String?
   currentLocation Location? @relation(fields: [locationId], references: [id])
   locationId      Int?      @unique
 

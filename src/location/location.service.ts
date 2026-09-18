@@ -62,6 +62,7 @@ export class LocationService {
           memberId: item.memberId,
           userId: item.userId,
           name: item.userName,
+          profilePhoto: item.profilePhoto,
           ...location,
         },
       });
@@ -168,6 +169,7 @@ export class LocationService {
           memberId: sharing.memberId,
           userId,
           name: sharing.userName,
+          profilePhoto: sharing.profilePhoto,
           ...sharing.currentLocation,
         },
       });
@@ -196,6 +198,7 @@ export class LocationService {
       memberId: member.memberId,
       userId: member.userId,
       name: member.name,
+      profilePhoto: member.profilePhoto,
       ...member.location,
     }));
   }

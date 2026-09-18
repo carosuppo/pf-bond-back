@@ -15,6 +15,7 @@ describe('LocationService', () => {
     groupId: 20,
     userId: 1,
     userName: 'Alice',
+    profilePhoto: null,
     locationSharingEnabled: true,
     shareLocationMandatorily: false,
     currentLocation: null,
@@ -117,6 +118,7 @@ describe('LocationService', () => {
         memberId: 30,
         userId: 3,
         name: 'Bob',
+        profilePhoto: null,
         location: {
           latitude: 1,
           longitude: 2,
@@ -130,6 +132,7 @@ describe('LocationService', () => {
         memberId: 30,
         userId: 3,
         name: 'Bob',
+        profilePhoto: null,
         latitude: 1,
         longitude: 2,
         accuracy: null,

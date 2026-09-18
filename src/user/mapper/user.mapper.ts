@@ -39,6 +39,7 @@ export class UserMapper {
       id: user.id,
       name: user.name,
       email: user.email,
+      profilePhoto: user.profilePhoto,
       locationId: user.locationId,
       groups: [],
       createdAt: user.createdAt,
@@ -65,6 +66,7 @@ export class UserMapper {
       id: user.id,
       name: user.name,
       email: user.email,
+      profilePhoto: user.profilePhoto,
       groups: groups.map((group) => ({
         id: group.id,
         name: group.name,

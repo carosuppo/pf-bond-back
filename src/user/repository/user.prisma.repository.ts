@@ -102,4 +102,20 @@ export class UserPrismaRepository implements IUserRepository {
       },
     });
   }
+
+  async updateProfilePhoto(
+    userId: number,
+    profilePhoto: string,
+    profilePhotoPath: string,
+  ): Promise<User> {
+    return this.prismaService.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        profilePhoto,
+        profilePhotoPath,
+      },
+    });
+  }
 }
