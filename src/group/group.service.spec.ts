@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { GroupService } from './group.service';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
@@ -9,6 +13,7 @@ describe('GroupService', () => {
   const groupRepositoryMock = {
     create: jest.fn(),
     findByInvitationCode: jest.fn(),
+    findByUserId: jest.fn(),
     update: jest.fn(),
     findById: jest.fn(),
   };
@@ -35,6 +40,39 @@ describe('GroupService', () => {
     }).compile();
 
     service = module.get(GroupService);
+  });
+
+  describe('createGroup', () => {
+    it('mantiene el invitationCode generado en la respuesta', async () => {
+      invitationCodeHelperMock.generate.mockResolvedValue('ABCDEF');
+      groupRepositoryMock.create.mockResolvedValue({
+        id: 3,
+        name: 'Familia',
+        description: null,
+        shareLocationMandatorily: false,
+        invitationCode: 'ABCDEF',
+        deletedAt: null,
+      });
+
+      const result = await service.createGroup(
+        {
+          name: 'Familia',
+          shareLocationMandatorily: false,
+        },
+        7,
+      );
+
+      expect(result.invitationCode).toBe('ABCDEF');
+      expect(groupRepositoryMock.create).toHaveBeenCalledWith(
+        {
+          name: 'Familia',
+          description: undefined,
+          shareLocationMandatorily: false,
+          invitationCode: 'ABCDEF',
+        },
+        7,
+      );
+    });
   });
 
   describe('join', () => {
@@ -68,6 +106,10 @@ describe('GroupService', () => {
       });
       expect(result).toEqual({
         message: 'Ingresaste al grupo correctamente.',
+        group: {
+          id: 1,
+          name: 'Familia',
+        },
       });
     });
 
@@ -104,12 +146,21 @@ describe('GroupService', () => {
       groupRepositoryMock.findByInvitationCode.mockResolvedValue(activeGroup);
       memberRepositoryMock.findByUserAndGroup.mockResolvedValue({ id: 10 });
 
-      const joinAttempt = service.join({ invitationCode: 'ABC123' }, 7);
+      let error: unknown;
+      try {
+        await service.join({ invitationCode: 'ABC123' }, 7);
+      } catch (caughtError) {
+        error = caughtError;
+      }
 
-      await expect(joinAttempt).rejects.toThrow(ConflictException);
-      await expect(joinAttempt).rejects.toThrow(
-        'Ya eres miembro de este grupo.',
-      );
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as HttpException).getResponse()).toEqual({
+        message: 'Ya eres miembro de este grupo.',
+        group: {
+          id: 1,
+          name: 'Familia',
+        },
+      });
 
       expect(memberRepositoryMock.addMember).not.toHaveBeenCalled();
     });

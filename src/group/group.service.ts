@@ -8,11 +8,11 @@ import {
 } from '@nestjs/common';
 import { RoleEnum } from '@prisma/client';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
-import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GetGroupResponseDto } from './dto/get-group-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
+import { JoinGroupResponseDto } from './dto/join-group-response.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
 import { GroupMapper } from './mapper/group.mapper';
@@ -102,7 +102,7 @@ export class GroupService {
   async join(
     joinGroupDto: JoinGroupDto,
     userId: number,
-  ): Promise<MessageResponseDto> {
+  ): Promise<JoinGroupResponseDto> {
     const group = await this.groupRepository.findByInvitationCode(
       joinGroupDto.invitationCode,
     );
@@ -119,7 +119,9 @@ export class GroupService {
     );
 
     if (existingMember) {
-      throw new ConflictException('Ya eres miembro de este grupo.');
+      throw new ConflictException(
+        GroupMapper.toJoinResponse(group, 'Ya eres miembro de este grupo.'),
+      );
     }
 
     await this.memberRepository.addMember({
@@ -128,8 +130,9 @@ export class GroupService {
       role: RoleEnum.MEMBER,
     });
 
-    return {
-      message: 'Ingresaste al grupo correctamente.',
-    };
+    return GroupMapper.toJoinResponse(
+      group,
+      'Ingresaste al grupo correctamente.',
+    );
   }
 }

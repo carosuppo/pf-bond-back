@@ -9,7 +9,10 @@ export class NormalizeInvitationCodePipe implements PipeTransform<
   transform(joinGroupDto: JoinGroupDto): JoinGroupDto {
     return {
       ...joinGroupDto,
-      invitationCode: joinGroupDto.invitationCode.trim().toUpperCase(),
+      invitationCode: joinGroupDto.invitationCode
+        .trim()
+        .replaceAll('-', '')
+        .toUpperCase(),
     };
   }
 }

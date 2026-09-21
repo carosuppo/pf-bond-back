@@ -20,6 +20,7 @@ describe('GroupController', () => {
     it('delega el ingreso al servicio con el DTO y el usuario autenticado', async () => {
       groupServiceMock.join.mockResolvedValue({
         message: 'Ingresaste al grupo correctamente.',
+        group: { id: 1, name: 'Familia' },
       });
 
       const result = await controller.join({ invitationCode: 'ABC123' }, 7);
@@ -30,6 +31,7 @@ describe('GroupController', () => {
       );
       expect(result).toEqual({
         message: 'Ingresaste al grupo correctamente.',
+        group: { id: 1, name: 'Familia' },
       });
     });
 

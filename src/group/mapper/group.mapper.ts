@@ -2,6 +2,7 @@ import { CreateGroupDto } from '../dto/create-group.dto';
 import { GetGroupResponseDto } from '../dto/get-group-response.dto';
 import { GetGroupsResponseDto } from '../dto/get-groups-response.dto';
 import { GroupResponseDto } from '../dto/group-response.dto';
+import { JoinGroupResponseDto } from '../dto/join-group-response.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { GetGroupEntity } from '../entity/get-group.entity';
 import { GroupEntity } from '../entity/group.entity';
@@ -57,6 +58,19 @@ export class GroupMapper {
         profilePhoto: member.profilePhoto,
         role: member.role,
       })),
+    };
+  }
+
+  static toJoinResponse(
+    entity: GroupEntity,
+    message: string,
+  ): JoinGroupResponseDto {
+    return {
+      message,
+      group: {
+        id: entity.id,
+        name: entity.name,
+      },
     };
   }
 }

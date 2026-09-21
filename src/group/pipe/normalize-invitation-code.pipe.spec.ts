@@ -14,4 +14,16 @@ describe('NormalizeInvitationCodePipe', () => {
       invitationCode: 'ABC123',
     });
   });
+
+  it('removes the dash from the display format', () => {
+    expect(pipe.transform({ invitationCode: ' ABC-123 ' })).toEqual({
+      invitationCode: 'ABC123',
+    });
+  });
+
+  it('normalizes lowercase input containing a dash', () => {
+    expect(pipe.transform({ invitationCode: 'abc-123' })).toEqual({
+      invitationCode: 'ABC123',
+    });
+  });
 });
