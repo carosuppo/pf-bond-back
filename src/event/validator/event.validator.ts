@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Inject,
+  Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -9,6 +10,7 @@ import type { IGroupRepository } from '../../group/repository/group.repository.i
 import type { IMemberRepository } from '../../member/repository/member.repository.interface';
 import type { IEventRepository } from '../repository/event.repository.interface';
 
+@Injectable()
 export class EventValidator {
   constructor(
     @Inject('eventRepository')
@@ -74,6 +76,16 @@ export class EventValidator {
     if (endDate && !this.isAfterDate(endDate, startDate)) {
       throw new BadRequestException(
         'La fecha de finalización debe ser posterior a la fecha de inicio.',
+      );
+    }
+  }
+
+  validateCancellable(startAt: Date, endAt: Date | null | undefined): void {
+    const effectiveEnd = endAt ?? startAt;
+
+    if (!this.isFutureDate(effectiveEnd)) {
+      throw new BadRequestException(
+        'El evento ya finalizó y no puede cancelarse.',
       );
     }
   }

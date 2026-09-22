@@ -18,6 +18,7 @@ export interface IEventRepository {
     userId: number,
   ): Promise<EventEntity>;
   update(eventId: number, data: UpdateEventData): Promise<EventEntity>;
+  cancel(eventId: number): Promise<EventEntity>;
   setLocation(
     eventId: number,
     latitude: number,

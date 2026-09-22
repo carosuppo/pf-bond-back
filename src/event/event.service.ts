@@ -1,6 +1,10 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
+  EVENT_CANCELLED_EVENT,
+  EventCancelledEvent,
+} from '../notification/events/event-cancelled.event';
+import {
   EVENT_UPDATED_EVENT,
   EventUpdatedEvent,
 } from '../notification/events/event-updated.event';
@@ -147,6 +151,36 @@ export class EventService {
     );
 
     return EventMapper.toResponse(updatedEvent);
+  }
+
+  async cancelEvent(
+    eventId: number,
+    groupId: number,
+    userId: number,
+  ): Promise<void> {
+    const member = await this.eventValidator.requireMembership(userId, groupId);
+    const existing = await this.eventRepository.findByIdAndMemberId(
+      eventId,
+      member.id,
+    );
+
+    if (!existing) {
+      throw new NotFoundException('El evento no existe.');
+    }
+
+    this.eventValidator.validateCancellable(existing.startAt, existing.endAt);
+
+    const cancelledEvent = await this.eventRepository.cancel(eventId);
+
+    this.eventEmitter.emit(
+      EVENT_CANCELLED_EVENT,
+      new EventCancelledEvent(
+        groupId,
+        cancelledEvent.id,
+        cancelledEvent.name,
+        userId,
+      ),
+    );
   }
 
   async setEventLocation(

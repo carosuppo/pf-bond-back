@@ -107,6 +107,30 @@ export class EventPrismaRepository implements IEventRepository {
     });
   }
 
+  async cancel(eventId: number): Promise<EventEntity> {
+    const event = await this.prismaService.event.update({
+      where: { id: eventId },
+      data: { deletedAt: new Date() },
+      include: { members: true, location: true },
+    });
+
+    return {
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      groupId: event.groupId,
+      memberIds: event.members.map((eventMember) => eventMember.memberId),
+      location: event.location
+        ? {
+            latitude: event.location.latitude,
+            longitude: event.location.longitude,
+          }
+        : null,
+    };
+  }
+
   async findAllByMemberId(
     memberId: number,
     year: number,
