@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  EVENT_CANCELLED_EVENT,
+  EventCancelledEvent,
+} from '../notification/events/event-cancelled.event';
 import { CreateEventDto } from './dto/create-event.dto';
 import { EventResponseDto } from './dto/event-response.dto';
 import type { CreateEventData } from './interface/create-event.interface';
@@ -13,6 +18,7 @@ export class EventService {
     private readonly eventRepository: IEventRepository,
     @Inject('eventValidator')
     private readonly eventValidator: EventValidator,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createEvent(
@@ -74,6 +80,36 @@ export class EventService {
     );
 
     return EventMapper.toResponse(event);
+  }
+
+  async cancelEvent(
+    eventId: number,
+    groupId: number,
+    userId: number,
+  ): Promise<void> {
+    const member = await this.eventValidator.requireMembership(userId, groupId);
+    const existing = await this.eventRepository.findByIdAndMemberId(
+      eventId,
+      member.id,
+    );
+
+    if (!existing) {
+      throw new NotFoundException('El evento no existe.');
+    }
+
+    this.eventValidator.validateCancellable(existing.startAt, existing.endAt);
+
+    const cancelledEvent = await this.eventRepository.cancel(eventId);
+
+    this.eventEmitter.emit(
+      EVENT_CANCELLED_EVENT,
+      new EventCancelledEvent(
+        groupId,
+        cancelledEvent.id,
+        cancelledEvent.name,
+        userId,
+      ),
+    );
   }
 
   async setEventLocation(

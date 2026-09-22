@@ -78,6 +78,16 @@ export class EventValidator {
     }
   }
 
+  validateCancellable(startAt: Date, endAt: Date | null | undefined): void {
+    const effectiveEnd = endAt ?? startAt;
+
+    if (!this.isFutureDate(effectiveEnd)) {
+      throw new BadRequestException(
+        'El evento ya finalizó y no puede cancelarse.',
+      );
+    }
+  }
+
   async validateMembersBelongToGroup(
     memberIds: number[],
     groupId: number,

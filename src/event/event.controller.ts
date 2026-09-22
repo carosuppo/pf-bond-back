@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -47,6 +48,15 @@ export class EventController {
     @CurrentUser() userId: number,
   ): Promise<EventResponseDto> {
     return this.eventService.createEvent(dto, groupId, userId);
+  }
+
+  @Delete(':id')
+  cancel(
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<void> {
+    return this.eventService.cancelEvent(id, groupId, userId);
   }
 
   @Patch(':id/location')

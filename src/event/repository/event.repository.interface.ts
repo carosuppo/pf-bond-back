@@ -12,6 +12,7 @@ export interface IEventRepository {
     groupId: number,
     userId: number,
   ): Promise<EventEntity>;
+  cancel(eventId: number): Promise<EventEntity>;
   setLocation(
     eventId: number,
     latitude: number,

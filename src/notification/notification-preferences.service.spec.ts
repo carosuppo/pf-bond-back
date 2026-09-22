@@ -40,7 +40,9 @@ describe('Notification preferences', () => {
       true,
       true,
       true,
+      true,
     ]);
+    expect(result.groups[0].types.EVENT_CANCELLED).toBe(true);
   });
   it('an explicit false affects only its type', async () => {
     repository.find.mockResolvedValue({
