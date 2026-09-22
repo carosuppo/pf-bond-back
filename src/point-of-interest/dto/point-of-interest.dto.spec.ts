@@ -82,4 +82,33 @@ describe('PointOfInterest DTOs', () => {
       (await validate(emptyName)).some((error) => error.property === 'name'),
     ).toBe(true);
   });
+
+  it('acepta nombre omitido para un temporal con duración positiva', async () => {
+    const dto = plainToInstance(CreatePointOfInterestDto, {
+      radius: 50,
+      latitude: -34,
+      longitude: -58,
+      isTemporary: true,
+      durationMinutes: 30,
+    });
+    await expect(validate(dto)).resolves.toHaveLength(0);
+  });
+
+  it.each([0, -1, 1.5, undefined])(
+    'rechaza duración temporal inválida: %s',
+    async (durationMinutes) => {
+      const dto = plainToInstance(CreatePointOfInterestDto, {
+        radius: 50,
+        latitude: -34,
+        longitude: -58,
+        isTemporary: true,
+        durationMinutes,
+      });
+      expect(
+        (await validate(dto)).some(
+          (error) => error.property === 'durationMinutes',
+        ),
+      ).toBe(true);
+    },
+  );
 });

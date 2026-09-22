@@ -17,4 +17,8 @@ export class PointOfInterestResponseDto {
   groupId!: number;
 
   createdAt!: Date;
+
+  isTemporary!: boolean;
+
+  endTime!: Date | null;
 }

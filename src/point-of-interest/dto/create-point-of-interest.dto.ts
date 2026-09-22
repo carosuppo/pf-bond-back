@@ -1,7 +1,10 @@
 import { PointOfInterestColor } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
+  IsDefined,
   IsEnum,
+  IsInt,
   ValidateIf,
   IsLatitude,
   IsLongitude,
@@ -21,12 +24,16 @@ export class CreatePointOfInterestDto {
   @Transform(({ value }: { value: unknown }): unknown =>
     typeof value === 'string' ? value.trim() : value,
   )
+  @ValidateIf(
+    (object: CreatePointOfInterestDto, value: unknown) =>
+      object.isTemporary !== true || (value !== undefined && value !== ''),
+  )
   @IsString({ message: 'El nombre debe ser un texto.' })
   @IsNotEmpty({ message: 'El nombre es obligatorio.' })
   @MaxLength(100, {
     message: 'El nombre no puede superar los 100 caracteres.',
   })
-  name!: string;
+  name?: string;
 
   @IsOptional()
   @Transform(({ value }: { value: unknown }): unknown =>
@@ -60,4 +67,15 @@ export class CreatePointOfInterestDto {
     message: 'La longitud debe estar entre -180 y 180.',
   })
   longitude!: number;
+
+  @IsOptional()
+  @IsBoolean({ message: 'El indicador temporal debe ser verdadero o falso.' })
+  isTemporary?: boolean;
+
+  @ValidateIf((object: CreatePointOfInterestDto) => object.isTemporary === true)
+  @IsDefined({ message: 'La duración es obligatoria para un punto temporal.' })
+  @Type(() => Number)
+  @IsInt({ message: 'La duración debe expresarse en minutos enteros.' })
+  @Min(1, { message: 'La duración debe ser mayor a 0.' })
+  durationMinutes?: number;
 }

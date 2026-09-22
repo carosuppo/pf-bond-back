@@ -118,6 +118,25 @@ describe('Presence persistence and reset', () => {
   it('queries only effective memberships and active POIs', async () => {
     findMany.mockResolvedValue([]);
     await new PointOfInterestPresencePrismaRepository(prisma).findCandidates(7);
+    type PresenceQuery = {
+      include: {
+        group: {
+          include: {
+            pointsOfInterest: {
+              where: {
+                deletedAt: null;
+                OR: Array<{
+                  isTemporary: boolean;
+                  endTime?: { gt: Date };
+                }>;
+              };
+            };
+          };
+        };
+      };
+    };
+    const calls = findMany.mock.calls as unknown as Array<[PresenceQuery]>;
+    const query = calls[0][0];
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -130,6 +149,11 @@ describe('Presence persistence and reset', () => {
         },
       }),
     );
+    const pointWhere = query.include.group.include.pointsOfInterest.where;
+    expect(pointWhere.deletedAt).toBeNull();
+    expect(pointWhere.OR[0]).toEqual({ isTemporary: false });
+    expect(pointWhere.OR[1].isTemporary).toBe(true);
+    expect(pointWhere.OR[1].endTime?.gt).toBeInstanceOf(Date);
   });
   const candidate: PresenceCandidate = {
     memberId: 1,

@@ -407,6 +407,7 @@ describe('UserService.getProfile', () => {
       id: user.id,
       name: user.name,
       email: user.email,
+      profilePhoto: null,
       groups,
     });
   });
