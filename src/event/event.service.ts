@@ -51,12 +51,14 @@ export class EventService {
     groupId: number,
     userId: number,
     year: number,
+    month?: number,
   ): Promise<EventResponseDto[]> {
     const member = await this.eventValidator.requireMembership(userId, groupId);
 
     const events = await this.eventRepository.findAllByMemberId(
       member.id,
       year,
+      month,
     );
 
     return events.map((event) => EventMapper.toResponse(event));

@@ -65,23 +65,26 @@ export class EventPrismaRepository implements IEventRepository {
   async findAllByMemberId(
     memberId: number,
     year: number,
+    month?: number,
   ): Promise<EventEntity[]> {
+    const rangeStart =
+      month == null ? new Date(year, 0, 1) : new Date(year, month - 1, 1);
+    const rangeEnd =
+      month == null
+        ? new Date(year, 11, 31, 23, 59, 59, 999)
+        : new Date(year, month, 0, 23, 59, 59, 999);
     const events = await this.prismaService.event.findMany({
       where: {
         deletedAt: null,
         members: { some: { memberId } },
+        startAt: { lte: rangeEnd },
         OR: [
           {
-            startAt: {
-              gte: new Date(year, 0, 1),
-              lte: new Date(year, 11, 31, 23, 59, 59, 999),
-            },
+            endAt: null,
+            startAt: { gte: rangeStart },
           },
           {
-            endAt: {
-              gte: new Date(year, 0, 1),
-              lte: new Date(year, 11, 31, 23, 59, 59, 999),
-            },
+            endAt: { gte: rangeStart },
           },
         ],
       },

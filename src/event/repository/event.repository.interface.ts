@@ -2,7 +2,11 @@ import { EventEntity } from '../entity/event.entity';
 import { CreateEventData } from '../interface/create-event.interface';
 
 export interface IEventRepository {
-  findAllByMemberId(memberId: number, year: number): Promise<EventEntity[]>;
+  findAllByMemberId(
+    memberId: number,
+    year: number,
+    month?: number,
+  ): Promise<EventEntity[]>;
   findByIdAndMemberId(
     eventId: number,
     memberId: number,

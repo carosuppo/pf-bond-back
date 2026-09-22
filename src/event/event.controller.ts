@@ -37,7 +37,12 @@ export class EventController {
     @Query() query: EventQueryDto,
     @CurrentUser() userId: number,
   ): Promise<EventResponseDto[]> {
-    return this.eventService.getEventsByGroup(groupId, userId, query.year);
+    return this.eventService.getEventsByGroup(
+      groupId,
+      userId,
+      query.year,
+      query.month,
+    );
   }
 
   @Post()
