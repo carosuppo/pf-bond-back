@@ -13,11 +13,31 @@ interface PointQueryArgs {
   };
 }
 
+interface PresenceCleanupArgs {
+  where: {
+    pointOfInterest: {
+      groupId: number;
+      isTemporary: boolean;
+      endTime: { lte: Date };
+    };
+  };
+}
+
 describe('PointOfInterestPrismaRepository temporal filtering', () => {
   const findMany = jest.fn();
   const findFirst = jest.fn();
+  const deleteMany = jest.fn();
+  const transactionClient = {
+    pointOfInterest: { findMany },
+    pointOfInterestPresence: { deleteMany },
+  };
+  const transaction = jest.fn(
+    async (callback: (client: typeof transactionClient) => Promise<unknown>) =>
+      callback(transactionClient),
+  );
   const prisma = {
-    pointOfInterest: { findMany, findFirst },
+    $transaction: transaction,
+    pointOfInterest: { findFirst },
   } as unknown as PrismaService;
   const repository = new PointOfInterestPrismaRepository(prisma);
 
@@ -25,17 +45,41 @@ describe('PointOfInterestPrismaRepository temporal filtering', () => {
     jest.clearAllMocks();
     findMany.mockResolvedValue([]);
     findFirst.mockResolvedValue(null);
+    deleteMany.mockResolvedValue({ count: 0 });
   });
 
-  it('consulta permanentes y temporales cuya expiración está en el futuro', async () => {
+  it('limpia solo presencias de temporales vencidos del grupo solicitado', async () => {
     await repository.findByGroupId(3);
+
+    const cleanupCalls = deleteMany.mock.calls as unknown as Array<
+      [PresenceCleanupArgs]
+    >;
+    const cleanup = cleanupCalls[0][0];
+    expect(cleanup.where.pointOfInterest.groupId).toBe(3);
+    expect(cleanup.where.pointOfInterest.isTemporary).toBe(true);
+    expect(cleanup.where.pointOfInterest.endTime.lte).toBeInstanceOf(Date);
+    expect(cleanup.where.pointOfInterest).not.toHaveProperty('deletedAt');
+  });
+
+  it('consulta los POI activos con el mismo instante usado para limpiar', async () => {
+    const activePoints = [{ id: 1 }, { id: 2 }];
+    findMany.mockResolvedValue(activePoints);
+
+    const result = await repository.findByGroupId(7);
     const calls = findMany.mock.calls as unknown as Array<[PointQueryArgs]>;
     const query = calls[0][0];
-    expect(query.where.groupId).toBe(3);
+    const cleanupCalls = deleteMany.mock.calls as unknown as Array<
+      [PresenceCleanupArgs]
+    >;
+    const cleanupNow = cleanupCalls[0][0].where.pointOfInterest.endTime.lte;
+
+    expect(result).toBe(activePoints);
+    expect(query.where.groupId).toBe(7);
     expect(query.where.deletedAt).toBeNull();
     expect(query.where.OR[0]).toEqual({ isTemporary: false });
     expect(query.where.OR[1].isTemporary).toBe(true);
-    expect(query.where.OR[1].endTime?.gt).toBeInstanceOf(Date);
+    expect(query.where.OR[1].endTime?.gt).toBe(cleanupNow);
+    expect(transaction).toHaveBeenCalledTimes(1);
   });
 
   it('aplica el mismo filtro al resolver un destino de routing', async () => {
