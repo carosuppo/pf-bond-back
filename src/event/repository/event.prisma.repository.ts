@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventEntity } from '../entity/event.entity';
 import { CreateEventData } from '../interface/create-event.interface';
+import { UpdateEventData } from '../interface/update-event.interface';
 import { IEventRepository } from '../repository/event.repository.interface';
 
 @Injectable()
@@ -52,6 +53,50 @@ export class EventPrismaRepository implements IEventRepository {
         endAt: event.endAt,
         groupId: event.groupId,
         memberIds: event.members.map((eventMember) => eventMember.memberId),
+        location: event.location
+          ? {
+              latitude: event.location.latitude,
+              longitude: event.location.longitude,
+            }
+          : null,
+      };
+    });
+  }
+
+  async update(eventId: number, data: UpdateEventData): Promise<EventEntity> {
+    return this.prismaService.$transaction(async (tx) => {
+      const event = await tx.event.update({
+        where: { id: eventId },
+        data: {
+          name: data.name,
+          description: data.description,
+          startAt: data.startAt,
+          endAt: data.endAt,
+        },
+        include: {
+          members: true,
+          location: true,
+        },
+      });
+
+      let memberIds = event.members.map((eventMember) => eventMember.memberId);
+
+      if (data.memberIds !== undefined) {
+        await tx.eventMember.deleteMany({ where: { eventId } });
+        await tx.eventMember.createMany({
+          data: data.memberIds.map((memberId) => ({ eventId, memberId })),
+        });
+        memberIds = [...data.memberIds];
+      }
+
+      return {
+        id: event.id,
+        name: event.name,
+        description: event.description,
+        startAt: event.startAt,
+        endAt: event.endAt,
+        groupId: event.groupId,
+        memberIds,
         location: event.location
           ? {
               latitude: event.location.latitude,

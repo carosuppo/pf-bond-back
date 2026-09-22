@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type {
   DevicePushTokenRecord,
   IDevicePushTokenRepository,
+  EventNotificationContext,
   PointOfInterestNotificationContext,
 } from './device-push-token.repository.interface';
 
@@ -69,6 +70,27 @@ export class PrismaDevicePushTokenRepository implements IDevicePushTokenReposito
     groupId: number,
     actorUserId: number,
   ): Promise<PointOfInterestNotificationContext | null> {
+    const membership = await this.prismaService.member.findFirst({
+      where: {
+        groupId,
+        userId: actorUserId,
+        group: { deletedAt: null },
+      },
+      select: {
+        group: { select: { name: true } },
+        user: { select: { name: true } },
+      },
+    });
+
+    return membership
+      ? { groupName: membership.group.name, actorName: membership.user.name }
+      : null;
+  }
+
+  async findEventNotificationContext(
+    groupId: number,
+    actorUserId: number,
+  ): Promise<EventNotificationContext | null> {
     const membership = await this.prismaService.member.findFirst({
       where: {
         groupId,
