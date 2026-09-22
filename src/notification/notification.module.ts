@@ -5,6 +5,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { UserModule } from '../user/user.module';
 import { PointOfInterestCreatedListener } from './events/point-of-interest-created.listener';
+import { EventUpdatedListener } from './events/event-updated.listener';
 import { FirebasePushService } from './firebase/firebase-push.service';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
@@ -22,6 +23,7 @@ import { PrismaDevicePushTokenRepository } from './repository/prisma-device-push
       useClass: PrismaNotificationPreferencesRepository,
     },
     PointOfInterestCreatedListener,
+    EventUpdatedListener,
     {
       provide: 'devicePushTokenRepository',
       useClass: PrismaDevicePushTokenRepository,

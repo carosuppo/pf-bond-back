@@ -9,6 +9,11 @@ export interface PointOfInterestNotificationContext {
   actorName: string;
 }
 
+export interface EventNotificationContext {
+  groupName: string;
+  actorName: string;
+}
+
 export interface IDevicePushTokenRepository {
   register(userId: number, token: string, platform: string): Promise<void>;
   unregister(userId: number, token: string): Promise<void>;
@@ -22,5 +27,9 @@ export interface IDevicePushTokenRepository {
     groupId: number,
     actorUserId: number,
   ): Promise<PointOfInterestNotificationContext | null>;
+  findEventNotificationContext(
+    groupId: number,
+    actorUserId: number,
+  ): Promise<EventNotificationContext | null>;
   deleteByTokens(tokens: string[]): Promise<void>;
 }

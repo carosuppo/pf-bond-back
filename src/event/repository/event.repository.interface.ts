@@ -1,5 +1,6 @@
 import { EventEntity } from '../entity/event.entity';
 import { CreateEventData } from '../interface/create-event.interface';
+import { UpdateEventData } from '../interface/update-event.interface';
 
 export interface IEventRepository {
   findAllByMemberId(
@@ -16,6 +17,7 @@ export interface IEventRepository {
     groupId: number,
     userId: number,
   ): Promise<EventEntity>;
+  update(eventId: number, data: UpdateEventData): Promise<EventEntity>;
   setLocation(
     eventId: number,
     latitude: number,
