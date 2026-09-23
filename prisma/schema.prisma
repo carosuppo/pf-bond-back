@@ -23,6 +23,23 @@ enum NotificationType {
   EVENT_CANCELLED
 }
 
+enum SecurityEventType {
+  AUTH_LOGIN_FAILED
+  LOCATION_UNAUTHORIZED
+  LOCATION_FORBIDDEN
+}
+
+enum SecurityAlertType {
+  AUTH_LOGIN_FAILED
+  LOCATION_ACCESS_DENIED
+}
+
+enum SecurityAlertStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model User {
   notificationsEnabled Boolean @default(true)
   id              Int       @id @default(autoincrement())
@@ -236,4 +253,34 @@ model PointOfInterestPresence {
 
   @@unique([memberId, pointOfInterestId])
   @@index([pointOfInterestId])
+}
+
+model SecurityEvent {
+  id             Int               @id @default(autoincrement())
+  type           SecurityEventType
+  ip             String?           @db.VarChar(45)
+  userId         Int?
+  identifierHash String?           @db.Char(64)
+  method         String            @db.VarChar(10)
+  path           String            @db.VarChar(500)
+  statusCode     Int
+  createdAt      DateTime          @default(now())
+
+  @@index([type, createdAt])
+  @@index([identifierHash, createdAt])
+  @@index([userId, createdAt])
+  @@index([ip, createdAt])
+}
+
+model SecurityAlert {
+  id             Int                 @id @default(autoincrement())
+  type           SecurityAlertType
+  correlationKey String              @db.VarChar(255)
+  eventCount     Int
+  windowSeconds  Int
+  status         SecurityAlertStatus @default(PENDING)
+  sentAt         DateTime?
+  createdAt      DateTime            @default(now())
+
+  @@index([type, correlationKey, createdAt])
 }
