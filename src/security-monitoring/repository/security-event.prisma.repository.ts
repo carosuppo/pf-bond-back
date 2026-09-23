@@ -52,7 +52,7 @@ export class SecurityEventPrismaRepository implements ISecurityEventRepository {
     alert: SecurityAlertReservationData,
   ): Promise<SecurityAlertReservation | null> {
     return this.prisma.$transaction(async (transaction) => {
-      await transaction.$queryRaw`
+      await transaction.$executeRaw`
         SELECT pg_advisory_xact_lock(hashtext(${alert.correlationKey}))
       `;
 
