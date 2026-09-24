@@ -13,13 +13,13 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import type { ProfilePhotoFile } from '../user/interface/profile-photo-file.interface';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GetGroupResponseDto } from './dto/get-group-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
+import { JoinGroupResponseDto } from './dto/join-group-response.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupService } from './group.service';
 import { NormalizeInvitationCodePipe } from './pipe/normalize-invitation-code.pipe';
@@ -33,7 +33,7 @@ export class GroupController {
   async join(
     @Body(NormalizeInvitationCodePipe) dto: JoinGroupDto,
     @CurrentUser() user: number,
-  ): Promise<MessageResponseDto> {
+  ): Promise<JoinGroupResponseDto> {
     return await this.groupService.join(dto, user);
   }
 
