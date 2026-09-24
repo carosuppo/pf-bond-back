@@ -14,6 +14,7 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import type { CreateEventData } from './interface/create-event.interface';
 import type { UpdateEventData } from './interface/update-event.interface';
 import { EventMapper } from './mapper/event.mapper';
+import { EventReminderService } from './reminder/event-reminder.service';
 import type { IEventRepository } from './repository/event.repository.interface';
 import { EventValidator } from './validator/event.validator';
 
@@ -25,6 +26,7 @@ export class EventService {
     @Inject('eventValidator')
     private readonly eventValidator: EventValidator,
     private readonly eventEmitter: EventEmitter2,
+    private readonly eventReminderService: EventReminderService,
   ) {}
 
   async createEvent(
@@ -139,6 +141,17 @@ export class EventService {
       eventId,
       persistenceData,
     );
+
+    if (updateEventDto.startAt !== undefined) {
+      await this.eventReminderService.rescheduleForEvent(
+        eventId,
+        updatedEvent.startAt,
+      );
+    }
+
+    if (memberIds !== undefined) {
+      await this.eventReminderService.purgeRemovedMembers(eventId, memberIds);
+    }
 
     this.eventEmitter.emit(
       EVENT_UPDATED_EVENT,

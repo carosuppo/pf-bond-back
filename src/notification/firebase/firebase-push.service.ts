@@ -13,6 +13,7 @@ export interface PushMessage {
   title: string;
   body: string;
   data: Record<string, string>;
+  ttlSeconds?: number;
 }
 
 export interface PushSendResult {
@@ -71,7 +72,14 @@ export class FirebasePushService implements OnModuleDestroy {
         tokens: chunk,
         notification: { title: message.title, body: message.body },
         data: message.data,
-        android: { priority: 'high' },
+        android: {
+          priority: 'high',
+          ttl:
+            message.ttlSeconds === undefined
+              ? undefined
+              : Math.max(0, Math.floor(message.ttlSeconds)) * 1000,
+          notification: { channelId: 'bond_default' },
+        },
       });
 
       response.responses.forEach((result, index) => {
