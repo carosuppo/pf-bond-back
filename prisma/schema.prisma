@@ -19,6 +19,8 @@ enum NotificationType {
   POINT_OF_INTEREST_UPDATED
   POINT_OF_INTEREST_ENTERED
   POINT_OF_INTEREST_EXITED
+  EVENT_UPDATED
+  EVENT_CANCELLED
 }
 
 model User {
@@ -119,6 +121,7 @@ model Member {
   user  User  @relation(fields: [userId], references: [id])
 
   eventMembers EventMember[]
+  eventReminders EventReminder[]
 
   @@unique([userId, groupId])
 }
@@ -139,6 +142,7 @@ model Event {
   group Group @relation(fields: [groupId], references: [id])
   members EventMember[]
   location Location? @relation(fields: [locationId], references: [id])
+  reminders EventReminder[]
 }
 
 model EventMember {
@@ -151,6 +155,26 @@ model EventMember {
 
   @@unique([eventId, memberId])
   @@index([memberId])
+}
+
+model EventReminder {
+  id          Int       @id @default(autoincrement())
+  eventId     Int
+  memberId    Int
+  leadMinutes Int
+  remindAt    DateTime
+  sentAt      DateTime?
+  utcOffsetMinutes Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, memberId, leadMinutes])
+  @@index([eventId])
+  @@index([remindAt])
 }
 
 model Reminder {

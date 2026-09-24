@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -15,6 +16,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { EventQueryDto } from './dto/event-query.dto';
 import { EventResponseDto } from './dto/event-response.dto';
 import { SetEventLocationDto } from './dto/set-event-location.dto';
+import { UpdateEventDto } from './dto/update-event.dto';
 import { EventService } from './event.service';
 
 @UseGuards(SessionAuthGuard)
@@ -37,7 +39,12 @@ export class EventController {
     @Query() query: EventQueryDto,
     @CurrentUser() userId: number,
   ): Promise<EventResponseDto[]> {
-    return this.eventService.getEventsByGroup(groupId, userId, query.year);
+    return this.eventService.getEventsByGroup(
+      groupId,
+      userId,
+      query.year,
+      query.month,
+    );
   }
 
   @Post()
@@ -47,6 +54,25 @@ export class EventController {
     @CurrentUser() userId: number,
   ): Promise<EventResponseDto> {
     return this.eventService.createEvent(dto, groupId, userId);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+    @Body() dto: UpdateEventDto,
+  ): Promise<EventResponseDto> {
+    return this.eventService.updateEvent(dto, id, groupId, userId);
+  }
+
+  @Delete(':id')
+  cancel(
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<void> {
+    return this.eventService.cancelEvent(id, groupId, userId);
   }
 
   @Patch(':id/location')
