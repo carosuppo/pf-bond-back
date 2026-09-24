@@ -60,6 +60,42 @@ export class SupabaseStorageService {
     return data.publicUrl;
   }
 
+  async getRandomDefaultGroupImage(): Promise<string> {
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .list('groups/defaults', {
+        limit: 100,
+        sortBy: { column: 'name', order: 'asc' },
+      });
+
+    if (error) {
+      this.logger.error(
+        `Error de Supabase Storage al listar imágenes de grupos: ${error.message}`,
+      );
+      throw new InternalServerErrorException(
+        'No se pudieron obtener las imágenes predeterminadas de grupos.',
+      );
+    }
+
+    const images = data.filter(
+      (file) => file.id !== null && /\.(jpe?g|png|webp)$/i.test(file.name),
+    );
+
+    if (images.length === 0) {
+      throw new InternalServerErrorException(
+        'No hay imágenes predeterminadas de grupos disponibles.',
+      );
+    }
+
+    const image = images[Math.floor(Math.random() * images.length)];
+    const path = `groups/defaults/${image.name}`;
+    const { data: publicUrl } = this.client.storage
+      .from(this.bucket)
+      .getPublicUrl(path);
+
+    return publicUrl.publicUrl;
+  }
+
   async remove(path: string): Promise<void> {
     const { error } = await this.client.storage
       .from(this.bucket)

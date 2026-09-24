@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { GroupService } from './group.service';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
+import { SupabaseStorageService } from '../user/storage/supabase-storage.service';
 
 describe('GroupService', () => {
   let service: GroupService;
@@ -22,6 +23,10 @@ describe('GroupService', () => {
     generate: jest.fn(),
   };
 
+  const supabaseStorageServiceMock = {
+    getRandomDefaultGroupImage: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -31,6 +36,10 @@ describe('GroupService', () => {
         { provide: 'groupRepository', useValue: groupRepositoryMock },
         { provide: 'memberRepository', useValue: memberRepositoryMock },
         { provide: InvitationCodeHelper, useValue: invitationCodeHelperMock },
+        {
+          provide: SupabaseStorageService,
+          useValue: supabaseStorageServiceMock,
+        },
       ],
     }).compile();
 
@@ -41,6 +50,7 @@ describe('GroupService', () => {
     const activeGroup = {
       id: 1,
       name: 'Familia',
+      image: 'familia.png',
       description: null,
       shareLocationMandatorily: false,
       invitationCode: 'ABC123',
@@ -112,6 +122,52 @@ describe('GroupService', () => {
       );
 
       expect(memberRepositoryMock.addMember).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createGroup', () => {
+    it('asigna una imagen predeterminada aleatoria', async () => {
+      const image =
+        'https://supabase.co/storage/v1/object/public/Bond/groups/defaults/group-default3.png';
+      const createdGroup = {
+        id: 1,
+        name: 'Familia',
+        image,
+        description: null,
+        shareLocationMandatorily: false,
+        invitationCode: 'ABC123',
+        deletedAt: null,
+      };
+
+      invitationCodeHelperMock.generate.mockResolvedValue('ABC123');
+      supabaseStorageServiceMock.getRandomDefaultGroupImage.mockResolvedValue(
+        image,
+      );
+      groupRepositoryMock.create.mockResolvedValue(createdGroup);
+
+      const result = await service.createGroup(
+        {
+          name: 'Familia',
+          description: 'Grupo familiar',
+          shareLocationMandatorily: false,
+        },
+        7,
+      );
+
+      expect(
+        supabaseStorageServiceMock.getRandomDefaultGroupImage,
+      ).toHaveBeenCalled();
+      expect(groupRepositoryMock.create).toHaveBeenCalledWith(
+        {
+          name: 'Familia',
+          image,
+          description: 'Grupo familiar',
+          shareLocationMandatorily: false,
+          invitationCode: 'ABC123',
+        },
+        7,
+      );
+      expect(result.image).toBe(image);
     });
   });
 });

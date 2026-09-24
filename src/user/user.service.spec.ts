@@ -388,8 +388,8 @@ describe('UserService.getProfile', () => {
   it('devuelve nombre, correo y listado de grupos del usuario', async () => {
     const user = buildUser();
     const groups = [
-      { id: 2, name: 'Amigos' },
-      { id: 3, name: 'Familia' },
+      { id: 2, name: 'Amigos', image: 'amigos.png' },
+      { id: 3, name: 'Familia', image: 'familia.png' },
     ];
 
     const userRepository: Partial<IUserRepository> = {
@@ -407,6 +407,7 @@ describe('UserService.getProfile', () => {
       id: user.id,
       name: user.name,
       email: user.email,
+      profilePhoto: null,
       groups,
     });
   });

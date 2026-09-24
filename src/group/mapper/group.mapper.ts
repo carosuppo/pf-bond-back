@@ -12,9 +12,11 @@ export class GroupMapper {
   static toCreatePersistence(
     dto: CreateGroupDto,
     invitationCode: string,
+    image: string,
   ): CreateGroupData {
     return {
       name: dto.name,
+      image,
       description: dto.description,
       shareLocationMandatorily: dto.shareLocationMandatorily,
       invitationCode,
@@ -24,6 +26,7 @@ export class GroupMapper {
   static toUpdatePersistence(dto: UpdateGroupDto): UpdateGroupData {
     return {
       name: dto.name,
+      ...(dto.image === undefined ? {} : { image: dto.image }),
       description: dto.description,
       shareLocationMandatorily: dto.shareLocationMandatorily,
     };
@@ -33,6 +36,7 @@ export class GroupMapper {
     return {
       id: entity.id,
       name: entity.name,
+      image: entity.image,
       description: entity.description ?? null,
       shareLocationMandatorily: entity.shareLocationMandatorily,
       invitationCode: entity.invitationCode,
@@ -40,13 +44,18 @@ export class GroupMapper {
   }
 
   static toGroupsResponse(entities: GroupEntity[]): GetGroupsResponseDto[] {
-    return entities.map((entity) => ({ id: entity.id, name: entity.name }));
+    return entities.map((entity) => ({
+      id: entity.id,
+      name: entity.name,
+      image: entity.image,
+    }));
   }
 
   static toGetGroupResponse(entity: GetGroupEntity): GetGroupResponseDto {
     return {
       id: entity.id,
       name: entity.name,
+      image: entity.image,
       description: entity.description ?? null,
       shareLocationMandatorily: entity.shareLocationMandatorily,
       invitationCode: entity.invitationCode,

@@ -100,7 +100,7 @@ describe('DELETE /user/me (PostgreSQL)', () => {
 
   async function createGroup(name: string) {
     return prisma.group.create({
-      data: { name, invitationCode: randomUUID() },
+      data: { name, image: 'group.png', invitationCode: randomUUID() },
     });
   }
 

@@ -5,6 +5,11 @@ export class UpdateGroupDto {
   name!: string;
 
   @IsOptional()
+  @IsString({ message: 'La imagen del grupo debe ser un texto.' })
+  @IsNotEmpty({ message: 'La imagen del grupo no puede estar vacía.' })
+  image?: string;
+
+  @IsOptional()
   @IsString({ message: 'La descripción debe ser un texto.' })
   description?: string;
 

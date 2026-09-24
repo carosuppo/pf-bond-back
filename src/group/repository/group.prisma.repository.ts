@@ -20,6 +20,7 @@ export class GroupPrismaRepository implements IGroupRepository {
       const group = await tx.group.create({
         data: {
           name: data.name,
+          image: data.image,
           description: data.description,
           shareLocationMandatorily: data.shareLocationMandatorily,
           invitationCode: data.invitationCode,
@@ -60,6 +61,7 @@ export class GroupPrismaRepository implements IGroupRepository {
       select: {
         id: true,
         name: true,
+        image: true,
         description: true,
         shareLocationMandatorily: true,
         invitationCode: true,
@@ -86,6 +88,7 @@ export class GroupPrismaRepository implements IGroupRepository {
     return {
       id: group.id,
       name: group.name,
+      image: group.image,
       description: group.description,
       shareLocationMandatorily: group.shareLocationMandatorily,
       invitationCode: group.invitationCode,
@@ -108,6 +111,13 @@ export class GroupPrismaRepository implements IGroupRepository {
         });
       }
       return group;
+    });
+  }
+
+  async updateImage(id: number, image: string): Promise<Group> {
+    return this.prisma.group.update({
+      where: { id },
+      data: { image },
     });
   }
 

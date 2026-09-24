@@ -70,6 +70,7 @@ export class UserMapper {
       groups: groups.map((group) => ({
         id: group.id,
         name: group.name,
+        image: group.image,
       })),
     };
   }

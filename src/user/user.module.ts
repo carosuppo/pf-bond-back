@@ -43,6 +43,7 @@ import { UserService } from './user.service';
   exports: [
     SessionAuthGuard,
     SessionAuthenticationService,
+    SupabaseStorageService,
     'userSessionRepository',
   ],
 })

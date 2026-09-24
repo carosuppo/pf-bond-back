@@ -7,6 +7,14 @@ if (!url) {
   throw new Error('DATABASE_URL no está definida');
 }
 
+const supabaseUrl = process.env.SUPABASE_URL;
+if (!supabaseUrl) {
+  throw new Error('SUPABASE_URL no está definida');
+}
+
+const supabaseBucket = process.env.SUPABASE_PROFILE_PHOTOS_BUCKET ?? 'Bond';
+const defaultGroupImage = `${supabaseUrl}/storage/v1/object/public/${supabaseBucket}/groups/defaults/group-default3.png`;
+
 const prisma = new PrismaClient({
   adapter: new PrismaPg(url),
 });
@@ -73,18 +81,21 @@ async function main() {
   const groupsData = [
     {
       name: 'grupo1',
+      image: defaultGroupImage,
       description: null,
       shareLocationMandatorily: false,
       creatorId: thomas.id,
     },
     {
       name: 'grupo2',
+      image: defaultGroupImage,
       description: null,
       shareLocationMandatorily: true,
       creatorId: thomas.id,
     },
     {
       name: 'prueba grupo 1',
+      image: defaultGroupImage,
       description: null,
       shareLocationMandatorily: true,
       creatorId: prueba.id,
@@ -97,6 +108,7 @@ async function main() {
     const group = await prisma.group.create({
       data: {
         name: g.name,
+        image: g.image,
         description: g.description,
         shareLocationMandatorily: g.shareLocationMandatorily,
         invitationCode,
@@ -138,5 +150,5 @@ main()
 
 // Para ver la BD: docker exec -it bond-back npx prisma studio --port 5555 --browser none
 
-// $env:DATABASE_URL="postgresql://postgres:root@localhost:5433/bond?schema=public"
+// $env:DATABASE_URL="postgresql://postgres:root@localhost:5434/bond?schema=public"
 // npx prisma studio --port 5555 --browser none

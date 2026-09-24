@@ -90,6 +90,7 @@ model UserSession {
 model Group {
   id                       Int     @id @default(autoincrement())
   name                     String
+  image                    String
   description              String?
   shareLocationMandatorily Boolean @default(false)
   invitationCode           String  @unique

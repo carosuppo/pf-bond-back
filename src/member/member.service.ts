@@ -99,4 +99,40 @@ export class MemberService {
           : 'El miembro ahora es Miembro.',
     };
   }
+
+  async removeMember(
+    memberId: number,
+    requesterUserId: number,
+  ): Promise<MessageResponseDto> {
+    const targetMember = await this.memberRepository.findById(memberId);
+
+    if (!targetMember) {
+      throw new NotFoundException('El miembro no existe.');
+    }
+
+    const requester = await this.memberRepository.findByUserAndGroup(
+      requesterUserId,
+      targetMember.groupId,
+    );
+
+    if (!requester) {
+      throw new ForbiddenException('No perteneces a este grupo.');
+    }
+
+    if (requester.role !== RoleEnum.ADMIN) {
+      throw new ForbiddenException(
+        'Solo los administradores pueden expulsar miembros.',
+      );
+    }
+
+    if (targetMember.userId === requesterUserId) {
+      throw new ForbiddenException('No puedes expulsarte del grupo.');
+    }
+
+    await this.memberRepository.deleteMember(memberId);
+
+    return {
+      message: 'El miembro fue expulsado del grupo.',
+    };
+  }
 }

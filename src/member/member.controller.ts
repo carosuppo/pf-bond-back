@@ -5,6 +5,7 @@ import {
   Param,
   ParseIntPipe,
   Put,
+  Delete,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/user.decorator';
@@ -34,5 +35,13 @@ export class MemberController {
     @CurrentUser() userId: number,
   ): Promise<MessageResponseDto> {
     return this.memberService.updateMemberRole(memberId, dto, userId);
+  }
+
+  @Delete(':memberId')
+  async removeMember(
+    @Param('memberId', ParseIntPipe) memberId: number,
+    @CurrentUser() userId: number,
+  ): Promise<MessageResponseDto> {
+    return this.memberService.removeMember(memberId, userId);
   }
 }

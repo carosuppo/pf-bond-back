@@ -99,6 +99,14 @@ export class MemberPrismaRepository implements IMemberRepository {
     });
   }
 
+  async deleteMember(memberId: number): Promise<Member> {
+    return this.prismaService.member.delete({
+      where: {
+        id: memberId,
+      },
+    });
+  }
+
   async getMembersByIds(
     memberIds: number[],
     groupId: number,

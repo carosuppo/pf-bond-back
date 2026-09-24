@@ -60,13 +60,18 @@ export class UserPrismaRepository implements IUserRepository {
           select: {
             id: true,
             name: true,
+            image: true,
           },
         },
       },
     });
 
     return members
-      .map((member) => ({ id: member.group.id, name: member.group.name }))
+      .map((member) => ({
+        id: member.group.id,
+        name: member.group.name,
+        image: member.group.image,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 

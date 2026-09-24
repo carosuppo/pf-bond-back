@@ -5,12 +5,17 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Patch,
   Put,
+  UploadedFile,
+  UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
+import type { ProfilePhotoFile } from '../user/interface/profile-photo-file.interface';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GetGroupResponseDto } from './dto/get-group-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
@@ -39,6 +44,16 @@ export class GroupController {
     @CurrentUser() userId: number,
   ): Promise<GroupResponseDto> {
     return this.groupService.update(id, dto, userId);
+  }
+
+  @Patch(':id/image')
+  @UseInterceptors(FileInterceptor('file'))
+  async updateImage(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: ProfilePhotoFile | undefined,
+    @CurrentUser() userId: number,
+  ): Promise<GroupResponseDto> {
+    return this.groupService.updateImage(id, file, userId);
   }
 
   @Post()

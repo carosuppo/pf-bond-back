@@ -13,6 +13,7 @@ describe('MemberService', () => {
     findById: jest.fn(),
     countAdminsByGroup: jest.fn(),
     updateRole: jest.fn(),
+    deleteMember: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -181,6 +182,67 @@ describe('MemberService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
 
       expect(memberRepositoryMock.updateRole).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeMember', () => {
+    it('removes a member when the requester is an administrator', async () => {
+      memberRepositoryMock.findById.mockResolvedValue({
+        id: 10,
+        userId: 8,
+        groupId: 20,
+        role: RoleEnum.MEMBER,
+      });
+      memberRepositoryMock.findByUserAndGroup.mockResolvedValue({
+        id: 1,
+        groupId: 20,
+        role: RoleEnum.ADMIN,
+      });
+      memberRepositoryMock.deleteMember.mockResolvedValue({ id: 10 });
+
+      await expect(service.removeMember(10, 7)).resolves.toEqual({
+        message: 'El miembro fue expulsado del grupo.',
+      });
+
+      expect(memberRepositoryMock.deleteMember).toHaveBeenCalledWith(10);
+    });
+
+    it('rejects removal by a non-administrator', async () => {
+      memberRepositoryMock.findById.mockResolvedValue({
+        id: 10,
+        userId: 8,
+        groupId: 20,
+        role: RoleEnum.MEMBER,
+      });
+      memberRepositoryMock.findByUserAndGroup.mockResolvedValue({
+        id: 1,
+        groupId: 20,
+        role: RoleEnum.MEMBER,
+      });
+
+      await expect(service.removeMember(10, 7)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(memberRepositoryMock.deleteMember).not.toHaveBeenCalled();
+    });
+
+    it('rejects removal of the requester', async () => {
+      memberRepositoryMock.findById.mockResolvedValue({
+        id: 10,
+        userId: 7,
+        groupId: 20,
+        role: RoleEnum.ADMIN,
+      });
+      memberRepositoryMock.findByUserAndGroup.mockResolvedValue({
+        id: 10,
+        groupId: 20,
+        role: RoleEnum.ADMIN,
+      });
+
+      await expect(service.removeMember(10, 7)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(memberRepositoryMock.deleteMember).not.toHaveBeenCalled();
     });
   });
 });
