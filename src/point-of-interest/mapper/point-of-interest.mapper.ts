@@ -1,4 +1,7 @@
-import { PointOfInterestColor } from '@prisma/client';
+import {
+  PointOfInterestColor,
+  PointOfInterestValidity,
+} from '@prisma/client';
 import type { CreatePointOfInterestDto } from '../dto/create-point-of-interest.dto';
 import type { PointOfInterestResponseDto } from '../dto/point-of-interest-response.dto';
 import type { UpdatePointOfInterestDto } from '../dto/update-point-of-interest.dto';
@@ -12,24 +15,18 @@ export class PointOfInterestMapper {
     groupId: number,
     now: Date = new Date(),
   ): CreatePointOfInterestData {
-    const normalizedDescription = dto.description?.trim() ?? '';
-    const isTemporary = dto.isTemporary === true;
-    const durationMinutes = dto.durationMinutes ?? 0;
+    const validity = dto.validity ?? PointOfInterestValidity.PERMANENT;
     const normalizedName = dto.name?.trim() ?? '';
 
     return {
       color: dto.color ?? PointOfInterestColor.BLUE,
       name: normalizedName.length > 0 ? normalizedName : 'Punto de encuentro',
-      description:
-        normalizedDescription.length === 0 ? null : normalizedDescription,
       radius: dto.radius,
       latitude: dto.latitude,
       longitude: dto.longitude,
       groupId,
-      isTemporary,
-      endTime: isTemporary
-        ? new Date(now.getTime() + durationMinutes * 60_000)
-        : null,
+      validity,
+      endTime: endTimeForValidity(validity, now),
     };
   }
 
@@ -40,13 +37,13 @@ export class PointOfInterestMapper {
 
     if (dto.color !== undefined) data.color = dto.color;
     if (dto.name !== undefined) data.name = dto.name.trim();
-    if (dto.description !== undefined) {
-      const description = dto.description?.trim() ?? '';
-      data.description = description.length === 0 ? null : description;
-    }
     if (dto.radius !== undefined) data.radius = dto.radius;
     if (dto.latitude !== undefined) data.latitude = dto.latitude;
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
+    if (dto.validity !== undefined) {
+      data.validity = dto.validity;
+      data.endTime = endTimeForValidity(dto.validity);
+    }
 
     return data;
   }
@@ -58,14 +55,26 @@ export class PointOfInterestMapper {
       color: pointOfInterest.color,
       id: pointOfInterest.id,
       name: pointOfInterest.name,
-      description: pointOfInterest.description,
       radius: pointOfInterest.radius,
       latitude: pointOfInterest.location.latitude,
       longitude: pointOfInterest.location.longitude,
       groupId: pointOfInterest.groupId,
       createdAt: pointOfInterest.createdAt,
-      isTemporary: pointOfInterest.isTemporary,
+      validity: pointOfInterest.validity,
       endTime: pointOfInterest.endTime,
     };
   }
+}
+
+function endTimeForValidity(
+  validity: PointOfInterestValidity,
+  now: Date = new Date(),
+): Date | null {
+  const durations = {
+    [PointOfInterestValidity.TWELVE_HOURS]: 12 * 60 * 60 * 1000,
+    [PointOfInterestValidity.ONE_DAY]: 24 * 60 * 60 * 1000,
+    [PointOfInterestValidity.THREE_DAYS]: 3 * 24 * 60 * 60 * 1000,
+  } satisfies Partial<Record<PointOfInterestValidity, number>>;
+  const duration = durations[validity];
+  return duration === undefined ? null : new Date(now.getTime() + duration);
 }

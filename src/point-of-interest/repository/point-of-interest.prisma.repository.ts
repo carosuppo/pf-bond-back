@@ -27,9 +27,8 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
         data: {
           color: data.color,
           name: data.name,
-          description: data.description,
           radius: data.radius,
-          isTemporary: data.isTemporary,
+          validity: data.validity,
           endTime: data.endTime,
           groupId: data.groupId,
           locationId: location.id,
@@ -48,7 +47,7 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
         where: {
           pointOfInterest: {
             groupId,
-            isTemporary: true,
+            validity: { not: 'PERMANENT' },
             endTime: { lte: now },
           },
         },
@@ -59,8 +58,8 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
           groupId,
           deletedAt: null,
           OR: [
-            { isTemporary: false },
-            { isTemporary: true, endTime: { gt: now } },
+            { validity: 'PERMANENT' },
+            { validity: { not: 'PERMANENT' }, endTime: { gt: now } },
           ],
         },
         include: {
@@ -93,8 +92,8 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
         groupId,
         deletedAt: null,
         OR: [
-          { isTemporary: false },
-          { isTemporary: true, endTime: { gt: new Date() } },
+            { validity: 'PERMANENT' },
+            { validity: { not: 'PERMANENT' }, endTime: { gt: new Date() } },
         ],
       },
       include: { location: true },
@@ -138,8 +137,9 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
         data: {
           color: data.color,
           name: data.name,
-          description: data.description,
           radius: data.radius,
+          validity: data.validity,
+          endTime: data.endTime,
         },
         include: { location: true },
       });

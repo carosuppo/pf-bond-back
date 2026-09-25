@@ -1,4 +1,4 @@
-import { PointOfInterestColor } from '@prisma/client';
+import { PointOfInterestColor, PointOfInterestValidity } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
@@ -30,13 +30,6 @@ export class UpdatePointOfInterestDto {
   name?: string;
 
   @IsOptional()
-  @IsString({ message: 'La descripción debe ser un texto.' })
-  @MaxLength(500, {
-    message: 'La descripción no puede superar los 500 caracteres.',
-  })
-  description?: string | null;
-
-  @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'El radio debe ser un número.' })
   @Min(0.000001, { message: 'El radio debe ser mayor a 0.' })
@@ -51,4 +44,10 @@ export class UpdatePointOfInterestDto {
   @Type(() => Number)
   @IsLongitude({ message: 'La longitud debe estar entre -180 y 180.' })
   longitude?: number;
+
+  @IsOptional()
+  @IsEnum(PointOfInterestValidity, {
+    message: 'La vigencia seleccionada no es válida.',
+  })
+  validity?: PointOfInterestValidity;
 }

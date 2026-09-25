@@ -7,7 +7,7 @@ interface PointQueryArgs {
     groupId: number;
     deletedAt: null;
     OR: Array<{
-      isTemporary: boolean;
+      validity: string;
       endTime?: { gt: Date };
     }>;
   };
@@ -17,7 +17,7 @@ interface PresenceCleanupArgs {
   where: {
     pointOfInterest: {
       groupId: number;
-      isTemporary: boolean;
+      validity: { not: string };
       endTime: { lte: Date };
     };
   };
@@ -56,7 +56,7 @@ describe('PointOfInterestPrismaRepository temporal filtering', () => {
     >;
     const cleanup = cleanupCalls[0][0];
     expect(cleanup.where.pointOfInterest.groupId).toBe(3);
-    expect(cleanup.where.pointOfInterest.isTemporary).toBe(true);
+    expect(cleanup.where.pointOfInterest.validity).toEqual({ not: 'PERMANENT' });
     expect(cleanup.where.pointOfInterest.endTime.lte).toBeInstanceOf(Date);
     expect(cleanup.where.pointOfInterest).not.toHaveProperty('deletedAt');
   });
@@ -76,8 +76,8 @@ describe('PointOfInterestPrismaRepository temporal filtering', () => {
     expect(result).toBe(activePoints);
     expect(query.where.groupId).toBe(7);
     expect(query.where.deletedAt).toBeNull();
-    expect(query.where.OR[0]).toEqual({ isTemporary: false });
-    expect(query.where.OR[1].isTemporary).toBe(true);
+    expect(query.where.OR[0]).toEqual({ validity: 'PERMANENT' });
+    expect(query.where.OR[1].validity).toEqual({ not: 'PERMANENT' });
     expect(query.where.OR[1].endTime?.gt).toBe(cleanupNow);
     expect(transaction).toHaveBeenCalledTimes(1);
   });
@@ -88,8 +88,8 @@ describe('PointOfInterestPrismaRepository temporal filtering', () => {
     const query = calls[0][0];
     expect(query.where.id).toBe(5);
     expect(query.where.groupId).toBe(3);
-    expect(query.where.OR[0]).toEqual({ isTemporary: false });
-    expect(query.where.OR[1].isTemporary).toBe(true);
+    expect(query.where.OR[0]).toEqual({ validity: 'PERMANENT' });
+    expect(query.where.OR[1].validity).toEqual({ not: 'PERMANENT' });
     expect(query.where.OR[1].endTime?.gt).toBeInstanceOf(Date);
   });
 });

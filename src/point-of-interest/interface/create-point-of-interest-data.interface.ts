@@ -1,12 +1,11 @@
-import { PointOfInterestColor } from '@prisma/client';
+import { PointOfInterestColor, PointOfInterestValidity } from '@prisma/client';
 export interface CreatePointOfInterestData {
   color: PointOfInterestColor;
   name: string;
-  description: string | null;
   radius: number;
   latitude: number;
   longitude: number;
   groupId: number;
-  isTemporary: boolean;
+  validity: PointOfInterestValidity;
   endTime: Date | null;
 }

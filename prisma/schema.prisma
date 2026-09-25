@@ -217,14 +217,20 @@ enum PointOfInterestColor {
   BLACK
 }
 
+enum PointOfInterestValidity {
+  PERMANENT
+  TWELVE_HOURS
+  ONE_DAY
+  THREE_DAYS
+}
+
 model PointOfInterest {
   color PointOfInterestColor @default(BLUE)
   presences PointOfInterestPresence[]
   id          Int       @id @default(autoincrement())
   name        String
-  description String?
   radius      Float
-  isTemporary Boolean   @default(false)
+  validity    PointOfInterestValidity @default(PERMANENT)
   endTime     DateTime?
   locationId  Int       @unique
   groupId     Int

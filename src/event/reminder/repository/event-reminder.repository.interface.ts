@@ -19,6 +19,7 @@ export interface DueEventReminder {
   eventId: number;
   eventName: string;
   eventStartAt: Date;
+  leadMinutes: number;
   groupId: number;
   memberId: number;
   userId: number;

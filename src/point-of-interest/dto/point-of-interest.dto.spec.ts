@@ -2,7 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import 'reflect-metadata';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
-import { PointOfInterestColor } from '@prisma/client';
+import { PointOfInterestColor, PointOfInterestValidity } from '@prisma/client';
 
 import { CreatePointOfInterestDto } from './create-point-of-interest.dto';
 import { UpdatePointOfInterestDto } from './update-point-of-interest.dto';
@@ -58,17 +58,17 @@ describe('PointOfInterest DTOs', () => {
     expect(errors.some((error) => error.property === field)).toBe(true);
   });
 
-  it('acepta descripción opcional y transforma espacios a null', async () => {
+  it('acepta la vigencia definida', async () => {
     const dto = plainToInstance(CreatePointOfInterestDto, {
       name: 'Lugar',
-      description: '   ',
+      validity: PointOfInterestValidity.THREE_DAYS,
       radius: 1,
       latitude: -34,
       longitude: -58,
     });
 
     await expect(validate(dto)).resolves.toHaveLength(0);
-    expect(dto.description).toBeNull();
+    expect(dto.validity).toBe(PointOfInterestValidity.THREE_DAYS);
   });
 
   it('acepta PATCH parcial y rechaza un nombre vacío', async () => {
@@ -83,31 +83,29 @@ describe('PointOfInterest DTOs', () => {
     ).toBe(true);
   });
 
-  it('acepta nombre omitido para un temporal con duración positiva', async () => {
+  it('acepta una vigencia temporal con nombre', async () => {
     const dto = plainToInstance(CreatePointOfInterestDto, {
+      name: 'Lugar',
       radius: 50,
       latitude: -34,
       longitude: -58,
-      isTemporary: true,
-      durationMinutes: 30,
+      validity: PointOfInterestValidity.TWELVE_HOURS,
     });
     await expect(validate(dto)).resolves.toHaveLength(0);
   });
 
-  it.each([0, -1, 1.5, undefined])(
-    'rechaza duración temporal inválida: %s',
-    async (durationMinutes) => {
+  it.each(['INVALID', 42])(
+    'rechaza vigencia inválida: %s',
+    async (validity) => {
       const dto = plainToInstance(CreatePointOfInterestDto, {
+        name: 'Lugar',
         radius: 50,
         latitude: -34,
         longitude: -58,
-        isTemporary: true,
-        durationMinutes,
+        validity,
       });
       expect(
-        (await validate(dto)).some(
-          (error) => error.property === 'durationMinutes',
-        ),
+        (await validate(dto)).some((error) => error.property === 'validity'),
       ).toBe(true);
     },
   );

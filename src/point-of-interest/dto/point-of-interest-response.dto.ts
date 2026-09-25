@@ -1,12 +1,10 @@
-import { PointOfInterestColor } from '@prisma/client';
+import { PointOfInterestColor, PointOfInterestValidity } from '@prisma/client';
 export class PointOfInterestResponseDto {
   color!: PointOfInterestColor;
 
   id!: number;
 
   name!: string;
-
-  description!: string | null;
 
   radius!: number;
 
@@ -18,7 +16,7 @@ export class PointOfInterestResponseDto {
 
   createdAt!: Date;
 
-  isTemporary!: boolean;
+  validity!: PointOfInterestValidity;
 
   endTime!: Date | null;
 }

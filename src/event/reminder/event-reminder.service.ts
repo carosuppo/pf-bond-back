@@ -154,10 +154,8 @@ export class EventReminderService {
     for (const reminder of due) {
       try {
         await this.notificationService.sendToUser(reminder.userId, {
-          title: 'Recordatorio de evento',
-          body:
-            `El evento "${reminder.eventName}" comienza ` +
-            `el ${this.formatInTimezone(reminder.eventStartAt, reminder.utcOffsetMinutes)}.`,
+          title: `${reminder.eventName} se acerca`,
+          body: `Falta ${this.formatLeadTime(reminder.leadMinutes)} para que comience ${reminder.eventName}`,
           data: {
             type: 'EVENT_REMINDER',
             groupId: String(reminder.groupId),
@@ -213,16 +211,19 @@ export class EventReminderService {
     };
   }
 
-  private formatInTimezone(
-    date: Date,
-    utcOffsetMinutes: number | null,
-  ): string {
-    const shifted = new Date(date.getTime() + (utcOffsetMinutes ?? 0) * 60000);
-    const day = String(shifted.getUTCDate()).padStart(2, '0');
-    const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
-    const year = shifted.getUTCFullYear();
-    const hours = String(shifted.getUTCHours()).padStart(2, '0');
-    const minutes = String(shifted.getUTCMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} a las ${hours}:${minutes}hs`;
+  private formatLeadTime(leadMinutes: number): string {
+    if (leadMinutes % 10080 === 0) {
+      const value = leadMinutes / 10080;
+      return value === 1 ? '1 semana' : `${value} semanas`;
+    }
+    if (leadMinutes % 1440 === 0) {
+      const value = leadMinutes / 1440;
+      return value === 1 ? '1 día' : `${value} días`;
+    }
+    if (leadMinutes % 60 === 0) {
+      const value = leadMinutes / 60;
+      return value === 1 ? '1 hora' : `${value} horas`;
+    }
+    return leadMinutes === 1 ? '1 minuto' : `${leadMinutes} minutos`;
   }
 }

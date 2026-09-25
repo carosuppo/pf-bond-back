@@ -26,8 +26,8 @@ export class PointOfInterestPresencePrismaRepository implements IPointOfInterest
               where: {
                 deletedAt: null,
                 OR: [
-                  { isTemporary: false },
-                  { isTemporary: true, endTime: { gt: new Date() } },
+                  { validity: 'PERMANENT' },
+                  { validity: { not: 'PERMANENT' }, endTime: { gt: new Date() } },
                 ],
               },
               include: { location: true },
@@ -82,8 +82,8 @@ export class PointOfInterestPresencePrismaRepository implements IPointOfInterest
           deletedAt: null,
           updatedAt: candidate.geometryUpdatedAt,
           OR: [
-            { isTemporary: false },
-            { isTemporary: true, endTime: { gt: new Date() } },
+            { validity: 'PERMANENT' },
+            { validity: { not: 'PERMANENT' }, endTime: { gt: new Date() } },
           ],
         },
         select: { id: true },

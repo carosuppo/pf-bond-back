@@ -116,6 +116,7 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
         select: {
           id: true,
           memberId: true,
+          leadMinutes: true,
           utcOffsetMinutes: true,
           event: {
             select: {
@@ -159,6 +160,7 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
         eventId: reminder.event.id,
         eventName: reminder.event.name,
         eventStartAt: reminder.event.startAt,
+        leadMinutes: reminder.leadMinutes,
         groupId: reminder.event.groupId,
         memberId: reminder.memberId,
         userId: reminder.member.userId,

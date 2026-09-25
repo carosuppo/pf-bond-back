@@ -82,7 +82,7 @@ describe('Presence persistence and reset', () => {
   );
   it.each([
     { name: 'Otro nombre' },
-    { description: 'Nueva descripción' },
+    {},
     { radius: 100, latitude: 1, longitude: 2 },
   ])('non-geometric change %j retains baseline', async (change) => {
     await new PointOfInterestPrismaRepository(prisma).update(8, change);
@@ -97,7 +97,6 @@ describe('Presence persistence and reset', () => {
       data: {
         color: PointOfInterestColor.PURPLE,
         name: undefined,
-        description: undefined,
         radius: undefined,
       },
       include: { location: true },
@@ -126,7 +125,7 @@ describe('Presence persistence and reset', () => {
               where: {
                 deletedAt: null;
                 OR: Array<{
-                  isTemporary: boolean;
+                  validity: string;
                   endTime?: { gt: Date };
                 }>;
               };
@@ -151,8 +150,8 @@ describe('Presence persistence and reset', () => {
     );
     const pointWhere = query.include.group.include.pointsOfInterest.where;
     expect(pointWhere.deletedAt).toBeNull();
-    expect(pointWhere.OR[0]).toEqual({ isTemporary: false });
-    expect(pointWhere.OR[1].isTemporary).toBe(true);
+    expect(pointWhere.OR[0]).toEqual({ validity: 'PERMANENT' });
+    expect(pointWhere.OR[1].validity).toEqual({ not: 'PERMANENT' });
     expect(pointWhere.OR[1].endTime?.gt).toBeInstanceOf(Date);
   });
   const candidate: PresenceCandidate = {

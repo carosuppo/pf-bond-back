@@ -2,7 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GroupEventService } from '../group/group-event.service';
-import { PointOfInterestColor } from '@prisma/client';
+import { PointOfInterestColor, PointOfInterestValidity } from '@prisma/client';
 import type { CreatePointOfInterestData } from './interface/create-point-of-interest-data.interface';
 
 import { PointOfInterestService } from './point-of-interest.service';
@@ -37,9 +37,8 @@ describe('PointOfInterestService', () => {
     color: PointOfInterestColor.BLUE,
     id: 5,
     name: 'Facultad',
-    description: 'Edificio principal',
     radius: 150,
-    isTemporary: false,
+    validity: PointOfInterestValidity.PERMANENT,
     endTime: null,
     locationId: 9,
     groupId: 3,
@@ -70,12 +69,11 @@ describe('PointOfInterestService', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it('crea un POI sin almacenar el usuario y normaliza la descripción', async () => {
-    repository.create.mockResolvedValue({ ...point, description: null });
+  it('crea un POI sin almacenar el usuario', async () => {
+    repository.create.mockResolvedValue(point);
 
     await service.create(3, 7, {
       name: ' Facultad ',
-      description: '   ',
       radius: 150,
       latitude: -34.6037,
       longitude: -58.3816,
@@ -84,12 +82,11 @@ describe('PointOfInterestService', () => {
     expect(repository.create).toHaveBeenCalledWith({
       color: PointOfInterestColor.BLUE,
       name: 'Facultad',
-      description: null,
       radius: 150,
       latitude: -34.6037,
       longitude: -58.3816,
       groupId: 3,
-      isTemporary: false,
+      validity: PointOfInterestValidity.PERMANENT,
       endTime: null,
     });
     expect(eventEmitter.emit).toHaveBeenCalledWith(
@@ -179,13 +176,12 @@ describe('PointOfInterestService', () => {
         id: 5,
         color: PointOfInterestColor.BLUE,
         name: 'Facultad',
-        description: 'Edificio principal',
         radius: 150,
         latitude: -34.6037,
         longitude: -58.3816,
         groupId: 3,
         createdAt: point.createdAt,
-        isTemporary: false,
+        validity: PointOfInterestValidity.PERMANENT,
         endTime: null,
       },
     ]);
@@ -197,14 +193,12 @@ describe('PointOfInterestService', () => {
     repository.update.mockResolvedValue({
       ...point,
       name: 'Sede nueva',
-      description: null,
       radius: 200,
       location: { ...location, latitude: -31, longitude: -60 },
     });
 
     const result = await service.update(3, 5, 7, {
       name: ' Sede nueva ',
-      description: ' ',
       radius: 200,
       latitude: -31,
       longitude: -60,
@@ -212,7 +206,6 @@ describe('PointOfInterestService', () => {
 
     expect(repository.update).toHaveBeenCalledWith(5, {
       name: 'Sede nueva',
-      description: null,
       radius: 200,
       latitude: -31,
       longitude: -60,
@@ -310,7 +303,7 @@ describe('PointOfInterestService', () => {
       Promise.resolve({
         ...point,
         name: data.name,
-        isTemporary: data.isTemporary,
+       validity: data.validity,
         endTime: data.endTime,
       }),
     );
@@ -319,21 +312,20 @@ describe('PointOfInterestService', () => {
       radius: 50,
       latitude: -34.6,
       longitude: -58.3,
-      isTemporary: true,
-      durationMinutes: 30,
+       validity: PointOfInterestValidity.TWELVE_HOURS,
     });
 
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Punto de encuentro',
-        isTemporary: true,
-        endTime: new Date('2026-09-22T12:30:00.000Z'),
+         validity: PointOfInterestValidity.TWELVE_HOURS,
+         endTime: new Date('2026-09-23T00:00:00.000Z'),
       }),
     );
     expect(result).toMatchObject({
       name: 'Punto de encuentro',
-      isTemporary: true,
-      endTime: new Date('2026-09-22T12:30:00.000Z'),
+       validity: PointOfInterestValidity.TWELVE_HOURS,
+       endTime: new Date('2026-09-23T00:00:00.000Z'),
     });
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'point-of-interest.created',
