@@ -13,6 +13,7 @@ import { NotificationModule } from './notification/notification.module';
 import { PointOfInterestModule } from './point-of-interest/point-of-interest.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RoutingModule } from './routing/routing.module';
+import { SecurityMonitoringModule } from './security-monitoring/security-monitoring.module';
 import { UserModule } from './user/user.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { UserModule } from './user/user.module';
       isGlobal: true,
     }),
     PrismaModule,
+    SecurityMonitoringModule,
     UserModule,
     EventModule,
     RoutingModule,
