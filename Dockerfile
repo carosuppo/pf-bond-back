@@ -11,14 +11,28 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm ci
 
-# ---- dev ----
 FROM node:22-alpine AS dev
 RUN apk add --no-cache openssl
-# Same npm version as the deps stage (the container also runs `npm install`
-# at startup via docker-compose, so it must match the lockfile too).
 RUN npm install -g npm@11.6.1
 WORKDIR /usr/src/app
 COPY --from=deps /usr/src/app/node_modules ./node_modules
 COPY package*.json ./
 COPY . .
 EXPOSE 3000
+
+FROM deps AS build
+COPY . .
+RUN npx prisma generate
+RUN npm run build
+
+FROM node:22-alpine AS production
+RUN apk add --no-cache openssl
+RUN npm install -g npm@11.6.1
+WORKDIR /usr/src/app
+COPY --from=build /usr/src/app/node_modules ./node_modules
+COPY package*.json ./
+COPY --from=build /usr/src/app/dist ./dist
+COPY --from=build /usr/src/app/prisma ./prisma
+COPY --from=build /usr/src/app/prisma.config.ts ./prisma.config.ts
+EXPOSE 3000
+CMD ["npm", "run", "start:prod"]
