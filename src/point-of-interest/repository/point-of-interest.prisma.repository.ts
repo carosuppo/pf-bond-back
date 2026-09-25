@@ -29,6 +29,8 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
           name: data.name,
           description: data.description,
           radius: data.radius,
+          isTemporary: data.isTemporary,
+          endTime: data.endTime,
           groupId: data.groupId,
           locationId: location.id,
         },
@@ -40,17 +42,34 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
   }
 
   async findByGroupId(groupId: number): Promise<PointOfInterestWithLocation[]> {
-    return this.prismaService.pointOfInterest.findMany({
-      where: {
-        groupId,
-        deletedAt: null,
-      },
-      include: {
-        location: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
+    const now = new Date();
+    return this.prismaService.$transaction(async (transaction) => {
+      await transaction.pointOfInterestPresence.deleteMany({
+        where: {
+          pointOfInterest: {
+            groupId,
+            isTemporary: true,
+            endTime: { lte: now },
+          },
+        },
+      });
+
+      return transaction.pointOfInterest.findMany({
+        where: {
+          groupId,
+          deletedAt: null,
+          OR: [
+            { isTemporary: false },
+            { isTemporary: true, endTime: { gt: now } },
+          ],
+        },
+        include: {
+          location: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
     });
   }
 
@@ -60,6 +79,24 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
   ): Promise<PointOfInterestWithLocation | null> {
     return this.prismaService.pointOfInterest.findFirst({
       where: { id: pointId, groupId, deletedAt: null },
+      include: { location: true },
+    });
+  }
+
+  async findActiveByIdAndGroupId(
+    pointId: number,
+    groupId: number,
+  ): Promise<PointOfInterestWithLocation | null> {
+    return this.prismaService.pointOfInterest.findFirst({
+      where: {
+        id: pointId,
+        groupId,
+        deletedAt: null,
+        OR: [
+          { isTemporary: false },
+          { isTemporary: true, endTime: { gt: new Date() } },
+        ],
+      },
       include: { location: true },
     });
   }

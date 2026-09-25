@@ -17,5 +17,6 @@ import { UserModule } from '../user/user.module';
       useClass: PointOfInterestPrismaRepository,
     },
   ],
+  exports: [PointOfInterestService],
 })
 export class PointOfInterestModule {}

@@ -19,6 +19,11 @@ export interface IPointOfInterestRepository {
     groupId: number,
   ): Promise<PointOfInterestWithLocation | null>;
 
+  findActiveByIdAndGroupId(
+    pointId: number,
+    groupId: number,
+  ): Promise<PointOfInterestWithLocation | null>;
+
   update(
     pointId: number,
     data: UpdatePointOfInterestData,

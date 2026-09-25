@@ -10,18 +10,26 @@ export class PointOfInterestMapper {
   static toCreateData(
     dto: CreatePointOfInterestDto,
     groupId: number,
+    now: Date = new Date(),
   ): CreatePointOfInterestData {
     const normalizedDescription = dto.description?.trim() ?? '';
+    const isTemporary = dto.isTemporary === true;
+    const durationMinutes = dto.durationMinutes ?? 0;
+    const normalizedName = dto.name?.trim() ?? '';
 
     return {
       color: dto.color ?? PointOfInterestColor.BLUE,
-      name: dto.name.trim(),
+      name: normalizedName.length > 0 ? normalizedName : 'Punto de encuentro',
       description:
         normalizedDescription.length === 0 ? null : normalizedDescription,
       radius: dto.radius,
       latitude: dto.latitude,
       longitude: dto.longitude,
       groupId,
+      isTemporary,
+      endTime: isTemporary
+        ? new Date(now.getTime() + durationMinutes * 60_000)
+        : null,
     };
   }
 
@@ -56,6 +64,8 @@ export class PointOfInterestMapper {
       longitude: pointOfInterest.location.longitude,
       groupId: pointOfInterest.groupId,
       createdAt: pointOfInterest.createdAt,
+      isTemporary: pointOfInterest.isTemporary,
+      endTime: pointOfInterest.endTime,
     };
   }
 }

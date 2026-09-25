@@ -12,6 +12,7 @@ import { MemberModule } from './member/member.module';
 import { NotificationModule } from './notification/notification.module';
 import { PointOfInterestModule } from './point-of-interest/point-of-interest.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RoutingModule } from './routing/routing.module';
 import { UserModule } from './user/user.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { UserModule } from './user/user.module';
     PrismaModule,
     UserModule,
     EventModule,
+    RoutingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

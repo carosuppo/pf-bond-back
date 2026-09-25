@@ -83,6 +83,27 @@ export class PointOfInterestService {
     return points.map((point) => PointOfInterestMapper.toResponse(point));
   }
 
+  async getActiveForMember(
+    groupId: number,
+    pointId: number,
+    userId: number,
+  ): Promise<PointOfInterestWithLocation> {
+    await this.requireAccess(userId, groupId);
+
+    const point = await this.pointOfInterestRepository.findActiveByIdAndGroupId(
+      pointId,
+      groupId,
+    );
+
+    if (!point) {
+      throw new NotFoundException(
+        'El punto de interés no existe, expiró o pertenece a otro grupo.',
+      );
+    }
+
+    return point;
+  }
+
   async update(
     groupId: number,
     pointId: number,

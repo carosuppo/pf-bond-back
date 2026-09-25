@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GroupEventService } from '../group/group-event.service';
 import { PointOfInterestColor } from '@prisma/client';
+import type { CreatePointOfInterestData } from './interface/create-point-of-interest-data.interface';
 
 import { PointOfInterestService } from './point-of-interest.service';
 
@@ -13,6 +14,7 @@ describe('PointOfInterestService', () => {
     create: jest.fn(),
     findByGroupId: jest.fn(),
     findByIdAndGroupId: jest.fn(),
+    findActiveByIdAndGroupId: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
   };
@@ -66,6 +68,8 @@ describe('PointOfInterestService', () => {
     service = module.get(PointOfInterestService);
   });
 
+  afterEach(() => jest.useRealTimers());
+
   it('crea un POI sin almacenar el usuario y normaliza la descripción', async () => {
     repository.create.mockResolvedValue({ ...point, description: null });
 
@@ -85,6 +89,8 @@ describe('PointOfInterestService', () => {
       latitude: -34.6037,
       longitude: -58.3816,
       groupId: 3,
+      isTemporary: false,
+      endTime: null,
     });
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'point-of-interest.created',
@@ -179,6 +185,8 @@ describe('PointOfInterestService', () => {
         longitude: -58.3816,
         groupId: 3,
         createdAt: point.createdAt,
+        isTemporary: false,
+        endTime: null,
       },
     ]);
     expect(repository.findByGroupId).toHaveBeenCalledWith(3);
@@ -293,5 +301,54 @@ describe('PointOfInterestService', () => {
     repository.softDelete.mockRejectedValue(new Error('delete failed'));
     await expect(service.remove(3, 5, 7)).rejects.toThrow('delete failed');
     expect(groupEventService.publish).not.toHaveBeenCalled();
+  });
+
+  it('crea un punto temporal con nombre por defecto y expiración futura', async () => {
+    const now = new Date('2026-09-22T12:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+    repository.create.mockImplementation((data: CreatePointOfInterestData) =>
+      Promise.resolve({
+        ...point,
+        name: data.name,
+        isTemporary: data.isTemporary,
+        endTime: data.endTime,
+      }),
+    );
+
+    const result = await service.create(3, 7, {
+      radius: 50,
+      latitude: -34.6,
+      longitude: -58.3,
+      isTemporary: true,
+      durationMinutes: 30,
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Punto de encuentro',
+        isTemporary: true,
+        endTime: new Date('2026-09-22T12:30:00.000Z'),
+      }),
+    );
+    expect(result).toMatchObject({
+      name: 'Punto de encuentro',
+      isTemporary: true,
+      endTime: new Date('2026-09-22T12:30:00.000Z'),
+    });
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'point-of-interest.created',
+      expect.objectContaining({ pointOfInterestId: 5 }),
+    );
+  });
+
+  it('sólo permite resolver para routing un POI activo del grupo', async () => {
+    repository.findActiveByIdAndGroupId.mockResolvedValue(point);
+    await expect(service.getActiveForMember(3, 5, 7)).resolves.toBe(point);
+    expect(repository.findActiveByIdAndGroupId).toHaveBeenCalledWith(5, 3);
+
+    repository.findActiveByIdAndGroupId.mockResolvedValue(null);
+    await expect(service.getActiveForMember(3, 5, 7)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

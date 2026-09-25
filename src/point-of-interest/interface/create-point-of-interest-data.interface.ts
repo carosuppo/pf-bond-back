@@ -7,4 +7,6 @@ export interface CreatePointOfInterestData {
   latitude: number;
   longitude: number;
   groupId: number;
+  isTemporary: boolean;
+  endTime: Date | null;
 }

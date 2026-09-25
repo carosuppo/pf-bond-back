@@ -23,7 +23,13 @@ export class PointOfInterestPresencePrismaRepository implements IPointOfInterest
         group: {
           include: {
             pointsOfInterest: {
-              where: { deletedAt: null },
+              where: {
+                deletedAt: null,
+                OR: [
+                  { isTemporary: false },
+                  { isTemporary: true, endTime: { gt: new Date() } },
+                ],
+              },
               include: { location: true },
             },
           },
@@ -75,6 +81,10 @@ export class PointOfInterestPresencePrismaRepository implements IPointOfInterest
           id: candidate.pointOfInterestId,
           deletedAt: null,
           updatedAt: candidate.geometryUpdatedAt,
+          OR: [
+            { isTemporary: false },
+            { isTemporary: true, endTime: { gt: new Date() } },
+          ],
         },
         select: { id: true },
       });
