@@ -5,6 +5,7 @@ import { PrismaNotificationPreferencesRepository } from './repository/prisma-not
 import { PrismaModule } from '../prisma/prisma.module';
 import { UserModule } from '../user/user.module';
 import { EventCancelledListener } from './events/event-cancelled.listener';
+import { EventCreatedListener } from './events/event-created.listener';
 import { EventUpdatedListener } from './events/event-updated.listener';
 import { PointOfInterestCreatedListener } from './events/point-of-interest-created.listener';
 import { FirebasePushService } from './firebase/firebase-push.service';
@@ -24,6 +25,7 @@ import { PrismaDevicePushTokenRepository } from './repository/prisma-device-push
       useClass: PrismaNotificationPreferencesRepository,
     },
     PointOfInterestCreatedListener,
+    EventCreatedListener,
     EventUpdatedListener,
     EventCancelledListener,
     {

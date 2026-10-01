@@ -1,6 +1,10 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
+  EVENT_CREATED_EVENT,
+  EventCreatedEvent,
+} from '../notification/events/event-created.event';
+import {
   EVENT_CANCELLED_EVENT,
   EventCancelledEvent,
 } from '../notification/events/event-cancelled.event';
@@ -56,6 +60,16 @@ export class EventService {
       persistenceData,
       groupId,
       userId,
+    );
+
+    this.eventEmitter.emit(
+      EVENT_CREATED_EVENT,
+      new EventCreatedEvent(
+        groupId,
+        createdEvent.id,
+        createdEvent.name,
+        userId,
+      ),
     );
 
     return EventMapper.toResponse(createdEvent);
@@ -209,6 +223,11 @@ export class EventService {
       eventId,
       latitude,
       longitude,
+    );
+
+    this.eventEmitter.emit(
+      EVENT_UPDATED_EVENT,
+      new EventUpdatedEvent(groupId, event.id, event.name, userId),
     );
 
     return EventMapper.toResponse(event);
