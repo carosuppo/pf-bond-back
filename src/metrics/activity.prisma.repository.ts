@@ -12,8 +12,8 @@ export class ActivityPrismaRepository implements IActivityRepository {
       UPDATE public."User"
       SET "lastActivityAt" = timezone('UTC', statement_timestamp())
       WHERE id = ${userId}
-        AND ("lastActivityAt" IS NULL OR "lastActivityAt" <
-          timezone('UTC', statement_timestamp()) - interval '15 minutes')
+        AND ("lastActivityAt" IS NULL OR "lastActivityAt" <=
+          timezone('UTC', statement_timestamp()) - interval '5 minutes')
     `;
   }
 }

@@ -49,7 +49,8 @@ const enabled = process.env.RUN_METRICS_DB_TESTS === '1';
         (3, 'test', '3@test', 'unused', 3, NULL, now()),
         (4, 'test', '4@test', 'unused', 4, timezone('UTC', now()) + interval '1 hour', now()),
         (5, 'test', '5@test', 'unused', 5, timezone('UTC', now()) - interval '6 days', now()),
-        (6, 'test', '6@test', 'unused', NULL, NULL, now())`;
+        (6, 'test', '6@test', 'unused', NULL, NULL, now()),
+        (7, 'test', '7@test', 'unused', NULL, NULL, now())`;
             await tx.$executeRaw`INSERT INTO public."Group" (id, name, image, "invitationCode", "shareLocationMandatorily", "updatedAt", "deletedAt") VALUES
         (1, 'test', '', '1', false, now(), NULL),
         (2, 'test', '', '2', true, now(), NULL),
@@ -58,7 +59,7 @@ const enabled = process.env.RUN_METRICS_DB_TESTS === '1';
             await tx.$executeRaw`INSERT INTO public."Member" ("userId", "groupId", role, "locationSharingEnabled") VALUES
         (1, 1, 'ADMIN', true), (1, 2, 'ADMIN', false), (1, 3, 'ADMIN', true),
         (2, 1, 'MEMBER', true), (3, 1, 'MEMBER', true), (4, 1, 'MEMBER', true),
-        (5, 1, 'MEMBER', true), (6, 3, 'MEMBER', true)`;
+        (5, 1, 'MEMBER', true), (6, 3, 'MEMBER', true), (7, 1, 'MEMBER', true)`;
             await tx.$executeRaw`INSERT INTO public."PointOfInterest" (name, radius, "locationId", "groupId", validity, "endTime", "deletedAt", "updatedAt") VALUES
         ('test', 1, 1, 1, 'PERMANENT', NULL, NULL, now()),
         ('test', 1, 2, 2, 'ONE_DAY', timezone('UTC', now()), NULL, now()),
@@ -82,11 +83,12 @@ const enabled = process.env.RUN_METRICS_DB_TESTS === '1';
             expect(row.groups_with_poi_percent).toBeCloseTo(100 / 3);
             expect(row.groups_with_events_percent).toBeCloseTo(100 / 3);
             expect(row).toEqual({
-              total_users: 6,
+              total_users: 7,
+              users_sharing_location: 6,
               users_with_recent_location: 1,
               users_with_recent_location_percent:
                 row.users_with_recent_location_percent,
-              weekly_active_users_observed: 2,
+              weekly_active_users_foreground: 2,
               active_groups: 3,
               groups_with_two_or_more_members: 1,
               groups_with_poi: 1,
@@ -109,6 +111,15 @@ const enabled = process.env.RUN_METRICS_DB_TESTS === '1';
               { n: bigint }[]
             >`SELECT groups_with_poi AS n FROM bond_metrics.sprint6`;
             expect(futurePoi[0].n).toBe(2n);
+            await tx.$executeRaw`UPDATE public."Member" SET "locationSharingEnabled" = false`;
+            const none = await tx.$queryRaw<
+              {
+                users_sharing_location: bigint;
+                users_with_recent_location_percent: number;
+              }[]
+            >`SELECT users_sharing_location, users_with_recent_location_percent FROM bond_metrics.sprint6`;
+            expect(none[0].users_sharing_location).toBe(0n);
+            expect(Number(none[0].users_with_recent_location_percent)).toBe(0);
             throw new Error('ROLLBACK_FIXTURES');
           },
           { maxWait: 10000, timeout: 20000 },
@@ -162,7 +173,7 @@ const enabled = process.env.RUN_METRICS_DB_TESTS === '1';
           await prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         ).toEqual(first);
         expect(first.updatedAt).toEqual(user.updatedAt);
-        await prisma.$executeRaw`UPDATE public."User" SET "lastActivityAt" = timezone('UTC', now()) - interval '16 minutes' WHERE id = ${user.id}`;
+        await prisma.$executeRaw`UPDATE public."User" SET "lastActivityAt" = timezone('UTC', now()) - interval '6 minutes' WHERE id = ${user.id}`;
         await repository.record(user.id);
         const refreshed = await prisma.user.findUniqueOrThrow({
           where: { id: user.id },

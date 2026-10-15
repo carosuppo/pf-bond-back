@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
-import { ActivityInterceptor } from './metrics/activity.interceptor';
+import { ActivityController } from './metrics/activity.controller';
+import { ActivityService } from './metrics/activity.service';
 import { ActivityPrismaRepository } from './metrics/activity.prisma.repository';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -39,11 +39,11 @@ import { UserModule } from './user/user.module';
     ExpenseAccountModule,
     RoutingModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, ActivityController],
   providers: [
     AppService,
     { provide: 'activityRepository', useClass: ActivityPrismaRepository },
-    { provide: APP_INTERCEPTOR, useClass: ActivityInterceptor },
+    ActivityService,
   ],
 })
 export class AppModule {}
