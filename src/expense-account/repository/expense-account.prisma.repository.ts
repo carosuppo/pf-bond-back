@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  ExpenseAccountDetailEntity,
+  MyExpenseAccountData,
+} from '../entity/expense-account-detail.entity';
 import { ExpenseAccountEntity } from '../entity/expense-account.entity';
 import { CreateExpenseAccountData } from '../interface/create-expense-account.interface';
 import {
@@ -72,5 +76,78 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     });
 
     return eventMembers.map((eventMember) => eventMember.memberId);
+  }
+
+  async findAccountsByUserId(userId: number): Promise<MyExpenseAccountData[]> {
+    const accounts = await this.prismaService.expenseAccount.findMany({
+      where: {
+        members: {
+          some: {
+            member: { userId },
+          },
+        },
+      },
+      include: {
+        members: {
+          select: {
+            memberId: true,
+            member: { select: { userId: true } },
+          },
+        },
+        group: { select: { name: true } },
+        event: { select: { name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return accounts.map((account) => {
+      const myMember = account.members.find(
+        (member) => member.member.userId === userId,
+      );
+
+      if (!myMember) {
+        throw new Error('No se encontró el miembro del usuario en su cuenta.');
+      }
+
+      return {
+        id: account.id,
+        name: account.name,
+        groupId: account.groupId,
+        groupName: account.group.name,
+        eventId: account.eventId,
+        eventName: account.event?.name ?? null,
+        memberIds: account.members.map((member) => member.memberId),
+        myMemberId: myMember.memberId,
+        movements: [],
+      };
+    });
+  }
+
+  async findAccountById(
+    accountId: number,
+  ): Promise<ExpenseAccountDetailEntity | null> {
+    const account = await this.prismaService.expenseAccount.findUnique({
+      where: { id: accountId },
+      include: {
+        members: { select: { memberId: true } },
+        group: { select: { name: true } },
+        event: { select: { name: true } },
+      },
+    });
+
+    if (!account) {
+      return null;
+    }
+
+    return {
+      id: account.id,
+      name: account.name,
+      groupId: account.groupId,
+      groupName: account.group.name,
+      eventId: account.eventId,
+      eventName: account.event?.name ?? null,
+      memberIds: account.members.map((member) => member.memberId),
+      movements: [],
+    };
   }
 }

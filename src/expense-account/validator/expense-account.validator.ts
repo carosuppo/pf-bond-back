@@ -91,4 +91,24 @@ export class ExpenseAccountValidator {
       );
     }
   }
+
+  async requireAccountMembership(accountId: number, userId: number) {
+    const account =
+      await this.expenseAccountRepository.findAccountById(accountId);
+
+    if (!account) {
+      throw new NotFoundException('La cuenta no existe.');
+    }
+
+    const member = await this.memberRepository.findByUserAndGroup(
+      userId,
+      account.groupId,
+    );
+
+    if (!member || !account.memberIds.includes(member.id)) {
+      throw new ForbiddenException('No estás asociado a esta cuenta.');
+    }
+
+    return { account, member };
+  }
 }

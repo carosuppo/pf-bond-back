@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateExpenseAccountDto } from './dto/create-expense-account.dto';
+import { ExpenseAccountDetailResponseDto } from './dto/expense-account-detail-response.dto';
 import { ExpenseAccountResponseDto } from './dto/expense-account-response.dto';
+import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
 import type { CreateExpenseAccountData } from './interface/create-expense-account.interface';
 import { ExpenseAccountMapper } from './mapper/expense-account.mapper';
 import type { IExpenseAccountRepository } from './repository/expense-account.repository.interface';
@@ -17,9 +19,10 @@ export class ExpenseAccountService {
 
   async createExpenseAccount(
     createExpenseAccountDto: CreateExpenseAccountDto,
-    groupId: number,
     userId: number,
   ): Promise<ExpenseAccountResponseDto> {
+    const groupId = createExpenseAccountDto.groupId;
+
     await this.expenseAccountValidator.existsGroup(groupId);
     const creator = await this.expenseAccountValidator.requireMembership(
       userId,
@@ -59,5 +62,27 @@ export class ExpenseAccountService {
     );
 
     return ExpenseAccountMapper.toResponse(createdExpenseAccount);
+  }
+
+  async getMyAccounts(userId: number): Promise<MyExpenseAccountResponseDto[]> {
+    const accounts =
+      await this.expenseAccountRepository.findAccountsByUserId(userId);
+
+    return accounts.map((account) =>
+      ExpenseAccountMapper.toMyAccountResponse(account),
+    );
+  }
+
+  async getAccountDetail(
+    accountId: number,
+    userId: number,
+  ): Promise<ExpenseAccountDetailResponseDto> {
+    const { account, member } =
+      await this.expenseAccountValidator.requireAccountMembership(
+        accountId,
+        userId,
+      );
+
+    return ExpenseAccountMapper.toDetailResponse(account, member.id);
   }
 }

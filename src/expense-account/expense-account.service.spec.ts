@@ -14,6 +14,8 @@ describe('ExpenseAccountService', () => {
     create: jest.fn(),
     findEventById: jest.fn(),
     findEventMemberIds: jest.fn(),
+    findAccountsByUserId: jest.fn(),
+    findAccountById: jest.fn(),
   };
 
   const memberRepositoryMock = {
@@ -70,8 +72,7 @@ describe('ExpenseAccountService', () => {
       });
 
       const result = await service.createExpenseAccount(
-        { name: 'Asado', memberIds: [20] },
-        1,
+        { name: 'Asado', groupId: 1, memberIds: [20] },
         7,
       );
 
@@ -101,8 +102,7 @@ describe('ExpenseAccountService', () => {
       });
 
       const result = await service.createExpenseAccount(
-        { name: 'Asado', memberIds: [20], eventId: null },
-        1,
+        { name: 'Asado', groupId: 1, memberIds: [20], eventId: null },
         7,
       );
 
@@ -134,8 +134,7 @@ describe('ExpenseAccountService', () => {
       );
 
       const result = await service.createExpenseAccount(
-        { name: 'Bebidas', memberIds: [20] },
-        1,
+        { name: 'Bebidas', groupId: 1, memberIds: [20] },
         7,
       );
 
@@ -154,8 +153,7 @@ describe('ExpenseAccountService', () => {
       });
 
       await service.createExpenseAccount(
-        { name: 'Picada', memberIds: [10, 20] },
-        1,
+        { name: 'Picada', groupId: 1, memberIds: [10, 20] },
         7,
       );
 
@@ -188,8 +186,7 @@ describe('ExpenseAccountService', () => {
       });
 
       const result = await service.createExpenseAccount(
-        { name: 'Viaje', memberIds: [20], eventId: 5 },
-        1,
+        { name: 'Viaje', groupId: 1, memberIds: [20], eventId: 5 },
         7,
       );
 
@@ -207,8 +204,7 @@ describe('ExpenseAccountService', () => {
       });
 
       const attempt = service.createExpenseAccount(
-        { name: 'Viaje', memberIds: [20], eventId: 9 },
-        1,
+        { name: 'Viaje', groupId: 1, memberIds: [20], eventId: 9 },
         7,
       );
 
@@ -225,8 +221,7 @@ describe('ExpenseAccountService', () => {
       expenseAccountRepositoryMock.findEventById.mockResolvedValue(null);
 
       const attempt = service.createExpenseAccount(
-        { name: 'Viaje', memberIds: [20], eventId: 999 },
-        1,
+        { name: 'Viaje', groupId: 1, memberIds: [20], eventId: 999 },
         7,
       );
 
@@ -246,8 +241,7 @@ describe('ExpenseAccountService', () => {
       expenseAccountRepositoryMock.findEventMemberIds.mockResolvedValue([10]);
 
       const attempt = service.createExpenseAccount(
-        { name: 'Viaje', memberIds: [20], eventId: 5 },
-        1,
+        { name: 'Viaje', groupId: 1, memberIds: [20], eventId: 5 },
         7,
       );
 
@@ -265,8 +259,7 @@ describe('ExpenseAccountService', () => {
       memberRepositoryMock.findByUserAndGroup.mockResolvedValue(null);
 
       const attempt = service.createExpenseAccount(
-        { name: 'Asado', memberIds: [20] },
-        1,
+        { name: 'Asado', groupId: 1, memberIds: [20] },
         7,
       );
 
@@ -294,8 +287,7 @@ describe('ExpenseAccountService', () => {
       memberRepositoryMock.getMembersByIds.mockResolvedValue([10]);
 
       const attempt = service.createExpenseAccount(
-        { name: 'Asado', memberIds: [99] },
-        1,
+        { name: 'Asado', groupId: 1, memberIds: [99] },
         7,
       );
 
@@ -304,6 +296,162 @@ describe('ExpenseAccountService', () => {
         'Los siguientes miembros no pertenecen al grupo: 99',
       );
       expect(expenseAccountRepositoryMock.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMyAccounts', () => {
+    it('lista las cuentas asociadas con grupo, evento y saldo saldado', async () => {
+      expenseAccountRepositoryMock.findAccountsByUserId.mockResolvedValue([
+        {
+          id: 1,
+          name: 'Asado',
+          groupId: 1,
+          groupName: 'Familia',
+          eventId: null,
+          eventName: null,
+          memberIds: [10, 20],
+          myMemberId: 10,
+          movements: [],
+        },
+        {
+          id: 2,
+          name: 'Viaje',
+          groupId: 1,
+          groupName: 'Familia',
+          eventId: 5,
+          eventName: 'Bariloche',
+          memberIds: [10, 30],
+          myMemberId: 10,
+          movements: [],
+        },
+      ]);
+
+      const result = await service.getMyAccounts(7);
+
+      expect(
+        expenseAccountRepositoryMock.findAccountsByUserId,
+      ).toHaveBeenCalledWith(7);
+      expect(result).toEqual([
+        {
+          id: 1,
+          name: 'Asado',
+          groupId: 1,
+          groupName: 'Familia',
+          eventId: null,
+          eventName: null,
+          balanceCents: 0,
+          status: 'SALDADO',
+        },
+        {
+          id: 2,
+          name: 'Viaje',
+          groupId: 1,
+          groupName: 'Familia',
+          eventId: 5,
+          eventName: 'Bariloche',
+          balanceCents: 0,
+          status: 'SALDADO',
+        },
+      ]);
+    });
+
+    it('devuelve una lista vacía si el miembro no está asociado a ninguna cuenta', async () => {
+      expenseAccountRepositoryMock.findAccountsByUserId.mockResolvedValue([]);
+
+      const result = await service.getMyAccounts(7);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getAccountDetail', () => {
+    it('devuelve el detalle con saldos, deudas y movimientos', async () => {
+      expenseAccountRepositoryMock.findAccountById.mockResolvedValue({
+        id: 1,
+        name: 'Asado',
+        groupId: 1,
+        groupName: 'Familia',
+        eventId: null,
+        eventName: null,
+        memberIds: [10, 20],
+        movements: [],
+      });
+      memberRepositoryMock.findByUserAndGroup.mockResolvedValue({
+        id: 10,
+        userId: 7,
+        groupId: 1,
+      });
+
+      const result = await service.getAccountDetail(1, 7);
+
+      expect(result).toEqual({
+        id: 1,
+        name: 'Asado',
+        groupId: 1,
+        groupName: 'Familia',
+        eventId: null,
+        eventName: null,
+        members: [
+          { memberId: 10, balanceCents: 0, status: 'SALDADO' },
+          { memberId: 20, balanceCents: 0, status: 'SALDADO' },
+        ],
+        myBalanceCents: 0,
+        myStatus: 'SALDADO',
+        debtsToMe: [],
+        myDebts: [],
+        movements: [],
+      });
+    });
+
+    it('falla si la cuenta no existe', async () => {
+      expenseAccountRepositoryMock.findAccountById.mockResolvedValue(null);
+
+      const attempt = service.getAccountDetail(999, 7);
+
+      await expect(attempt).rejects.toThrow(NotFoundException);
+      await expect(attempt).rejects.toThrow('La cuenta no existe.');
+    });
+
+    it('falla si el miembro no está asociado a la cuenta', async () => {
+      expenseAccountRepositoryMock.findAccountById.mockResolvedValue({
+        id: 1,
+        name: 'Asado',
+        groupId: 1,
+        groupName: 'Familia',
+        eventId: null,
+        eventName: null,
+        memberIds: [10, 20],
+        movements: [],
+      });
+      memberRepositoryMock.findByUserAndGroup.mockResolvedValue({
+        id: 30,
+        userId: 7,
+        groupId: 1,
+      });
+
+      const attempt = service.getAccountDetail(1, 7);
+
+      await expect(attempt).rejects.toThrow(ForbiddenException);
+      await expect(attempt).rejects.toThrow('No estás asociado a esta cuenta.');
+    });
+
+    it('falla si el usuario no pertenece al grupo de la cuenta', async () => {
+      expenseAccountRepositoryMock.findAccountById.mockResolvedValue({
+        id: 1,
+        name: 'Asado',
+        groupId: 1,
+        groupName: 'Familia',
+        eventId: null,
+        eventName: null,
+        memberIds: [10, 20],
+        movements: [],
+      });
+      memberRepositoryMock.findByUserAndGroup.mockResolvedValue(null);
+
+      const attempt = service.getAccountDetail(1, 7);
+
+      await expect(attempt).rejects.toThrow(ForbiddenException);
+      await expect(attempt).rejects.toThrow('No estás asociado a esta cuenta.');
     });
   });
 });
