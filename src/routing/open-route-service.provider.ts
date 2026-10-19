@@ -2,10 +2,12 @@ import {
   BadGatewayException,
   GatewayTimeoutException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { logErrorSafely, logSafely } from '../common/logging/error-logging';
 
 import { RouteMode } from './dto/route-mode';
 import type { RouteResponseDto } from './dto/route-response.dto';
@@ -18,6 +20,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 @Injectable()
 export class OpenRouteServiceProvider implements IRoutingProvider {
+  private readonly logger = new Logger(OpenRouteServiceProvider.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   async calculate(
@@ -50,15 +54,6 @@ export class OpenRouteServiceProvider implements IRoutingProvider {
       ],
     };
 
-    console.log('================ ORS REQUEST ================');
-    console.log('URL:', url);
-    console.log('Profile:', profile);
-    console.log('Origin:', origin);
-    console.log('Destination:', destination);
-    console.log('Body:', JSON.stringify(body));
-    console.log('Timeout:', REQUEST_TIMEOUT_MS, 'ms');
-    console.log('=============================================');
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -77,24 +72,12 @@ export class OpenRouteServiceProvider implements IRoutingProvider {
 
       const elapsedMs = Date.now() - startedAt;
 
-      console.log('================ ORS RESPONSE ===============');
-      console.log('Status:', response.status);
-      console.log('OK:', response.ok);
-      console.log('Time:', elapsedMs, 'ms');
-      console.log('=============================================');
-
       if (!response.ok) {
-        let responseBody = '';
-
-        try {
-          responseBody = await response.text();
-        } catch {
-          responseBody = '<No se pudo leer el body>';
-        }
-
-        console.log('================ ORS ERROR BODY =============');
-        console.log(responseBody);
-        console.log('=============================================');
+        logSafely(
+          this.logger,
+          'error',
+          `operation=calculateRoute provider=OpenRouteService outcome=error profile=${profile} upstreamStatus=${response.status} durationMs=${elapsedMs}`,
+        );
 
         if (response.status === 404) {
           throw new UnprocessableEntityException(
@@ -109,24 +92,20 @@ export class OpenRouteServiceProvider implements IRoutingProvider {
 
       const payload: unknown = await response.json();
 
-      console.log('ORS payload recibido correctamente.');
-
       return this.normalize(payload);
     } catch (error: unknown) {
       const elapsedMs = Date.now() - startedAt;
 
-      console.log('================ ORS EXCEPTION ==============');
-      console.log('Time:', elapsedMs, 'ms');
-
-      if (error instanceof Error) {
-        console.log('Name:', error.name);
-        console.log('Message:', error.message);
-        console.log('Cause:', error.cause);
-      } else {
-        console.log('Error:', error);
+      if (
+        !(error instanceof UnprocessableEntityException) &&
+        !(error instanceof BadGatewayException)
+      ) {
+        logErrorSafely(
+          this.logger,
+          `operation=calculateRoute provider=OpenRouteService durationMs=${elapsedMs}`,
+          error,
+        );
       }
-
-      console.log('=============================================');
 
       if (error instanceof UnprocessableEntityException) {
         throw error;
@@ -212,12 +191,6 @@ export class OpenRouteServiceProvider implements IRoutingProvider {
         'El servicio de rutas devolvió una respuesta inválida.',
       );
     }
-
-    console.log('================ ORS NORMALIZED =============');
-    console.log('Points:', points.length);
-    console.log('Distance:', distance, 'm');
-    console.log('Duration:', duration, 's');
-    console.log('=============================================');
 
     return {
       points,

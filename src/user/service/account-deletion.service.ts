@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { logErrorSafely } from '../../common/logging/error-logging';
 import type {
   IAccountDeletionRepository,
   RemovedMembership,
@@ -26,9 +27,10 @@ export class AccountDeletionService {
     const removedMemberships = await this.repository.deleteAccount(userId);
     try {
       this.events.emit(ACCOUNT_DELETED_EVENT, { userId, removedMemberships });
-    } catch (error) {
-      this.logger.error(
-        'Account deletion side effect failed after commit',
+    } catch (error: unknown) {
+      logErrorSafely(
+        this.logger,
+        'operation=publishAccountDeletedEvent outcome=error',
         error,
       );
     }

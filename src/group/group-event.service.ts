@@ -38,6 +38,19 @@ export interface MemberLocationHeartbeatEvent {
   };
 }
 
+export interface GroupDeletedEvent {
+  event: 'groupDeleted';
+  data: GroupEventData;
+}
+
+export interface MemberLeftEvent {
+  event: 'memberLeft';
+  data: GroupEventData & {
+    memberId: number;
+    userId: number;
+  };
+}
+
 export interface PointOfInterestCreatedGroupEvent {
   event: 'pointOfInterestCreated';
   data: GroupEventData & { pointOfInterestId: number };
@@ -57,6 +70,8 @@ export type GroupEvent =
   | MemberLocationUpdatedEvent
   | MemberLocationRemovedEvent
   | MemberLocationHeartbeatEvent
+  | GroupDeletedEvent
+  | MemberLeftEvent
   | PointOfInterestCreatedGroupEvent
   | PointOfInterestUpdatedGroupEvent
   | PointOfInterestDeletedGroupEvent;

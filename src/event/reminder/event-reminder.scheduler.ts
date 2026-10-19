@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { logErrorSafely, logSafely } from '../../common/logging/error-logging';
 
 import { EventReminderService } from './event-reminder.service';
 
@@ -18,13 +19,17 @@ export class EventReminderScheduler {
     try {
       const sent = await this.eventReminderService.sendDueReminders();
       if (sent > 0) {
-        this.logger.log(`Recordatorios de evento enviados: ${sent}.`);
+        logSafely(
+          this.logger,
+          'log',
+          `operation=sendDueEventReminders outcome=completed count=${sent}`,
+        );
       }
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Error desconocido';
-      this.logger.error(
-        `Falló el envío de recordatorios de evento: ${message}`,
+      logErrorSafely(
+        this.logger,
+        'operation=sendDueEventReminders outcome=error',
+        error,
       );
     } finally {
       this.running = false;

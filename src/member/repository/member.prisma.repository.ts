@@ -99,12 +99,53 @@ export class MemberPrismaRepository implements IMemberRepository {
     });
   }
 
-  async deleteMember(memberId: number): Promise<Member> {
-    return this.prismaService.member.delete({
-      where: {
-        id: memberId,
-      },
-    });
+  async deleteMember(
+    memberId: number,
+    transaction?: Prisma.TransactionClient,
+  ): Promise<Member> {
+    const remove = async (tx: Prisma.TransactionClient): Promise<Member> => {
+      const member = await tx.member.findUniqueOrThrow({
+        where: { id: memberId },
+        select: { id: true, groupId: true, role: true },
+      });
+
+      if (member.role === RoleEnum.ADMIN) {
+        const anotherAdmin = await tx.member.findFirst({
+          where: {
+            groupId: member.groupId,
+            id: { not: memberId },
+            role: RoleEnum.ADMIN,
+          },
+          select: { id: true },
+        });
+
+        if (!anotherAdmin) {
+          const successor = await tx.member.findFirst({
+            where: {
+              groupId: member.groupId,
+              id: { not: memberId },
+            },
+            orderBy: { id: 'asc' },
+            select: { id: true },
+          });
+
+          if (successor) {
+            await tx.member.update({
+              where: { id: successor.id },
+              data: { role: RoleEnum.ADMIN },
+            });
+          }
+        }
+      }
+
+      return tx.member.delete({
+        where: { id: memberId },
+      });
+    };
+
+    return transaction
+      ? remove(transaction)
+      : this.prismaService.$transaction(remove);
   }
 
   async getMembersByIds(

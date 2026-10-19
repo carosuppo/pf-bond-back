@@ -1,4 +1,10 @@
-import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -8,6 +14,7 @@ import {
 import { Subscription } from 'rxjs';
 import { OnEvent } from '@nestjs/event-emitter';
 import { WebSocket } from 'ws';
+import { logErrorSafely } from '../common/logging/error-logging';
 import { GroupEvent, GroupEventService } from '../group/group-event.service';
 import { SessionAuthenticationService } from '../user/service/session-authentication.service';
 import { ACCOUNT_DELETED_EVENT } from '../user/service/account-deletion.service';
@@ -90,8 +97,9 @@ export class LocationGateway
           },
         });
       } catch (error) {
-        this.logger.error(
-          'Failed to publish removed member after account deletion',
+        logErrorSafely(
+          this.logger,
+          'operation=publishAccountDeletionRemoval outcome=error',
           error,
         );
       }
@@ -102,8 +110,9 @@ export class LocationGateway
       try {
         client.close(1008, 'Account deleted');
       } catch (error) {
-        this.logger.error(
-          'Failed to close socket after account deletion',
+        logErrorSafely(
+          this.logger,
+          'operation=closeDeletedAccountSocket outcome=error',
           error,
         );
       }
@@ -125,7 +134,15 @@ export class LocationGateway
         event: 'authenticated',
         data: {},
       });
-    } catch {
+    } catch (error: unknown) {
+      if (!(error instanceof UnauthorizedException)) {
+        logErrorSafely(
+          this.logger,
+          'operation=authenticate outcome=error',
+          error,
+        );
+      }
+
       this.send(client, {
         event: 'authenticationFailed',
 
@@ -174,7 +191,15 @@ export class LocationGateway
           groupId: data.groupId,
         },
       });
-    } catch {
+    } catch (error: unknown) {
+      if (!(error instanceof ForbiddenException)) {
+        logErrorSafely(
+          this.logger,
+          'operation=subscribeGroup outcome=error',
+          error,
+        );
+      }
+
       this.send(client, {
         event: 'subscriptionFailed',
 
@@ -196,9 +221,20 @@ export class LocationGateway
     for (const client of clients) {
       const authenticatedUserId = this.authenticatedUsers.get(client);
 
+      if (
+        event.event === 'memberLeft' &&
+        authenticatedUserId === event.data.userId
+      ) {
+        clients.delete(client);
+        continue;
+      }
+
       // Nunca devolverle al usuario
       // sus propios eventos.
-      if (authenticatedUserId === event.data.actorUserId) {
+      if (
+        event.event !== 'groupDeleted' &&
+        authenticatedUserId === event.data.actorUserId
+      ) {
         continue;
       }
 
@@ -206,9 +242,20 @@ export class LocationGateway
         this.send(client, event);
       }
     }
+
+    if (event.event === 'groupDeleted') {
+      this.groupSubscriptions.delete(event.data.groupId);
+    } else if (event.event === 'memberLeft' && clients.size === 0) {
+      this.groupSubscriptions.delete(event.data.groupId);
+    }
   }
 
   private send(client: WebSocket, message: SocketMessage<unknown>): void {
-    client.send(JSON.stringify(message));
+    try {
+      client.send(JSON.stringify(message));
+    } catch (error: unknown) {
+      logErrorSafely(this.logger, 'operation=send outcome=error', error);
+      throw error;
+    }
   }
 }

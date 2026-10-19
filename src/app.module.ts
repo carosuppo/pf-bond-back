@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -15,6 +16,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RoutingModule } from './routing/routing.module';
 import { SecurityMonitoringModule } from './security-monitoring/security-monitoring.module';
 import { UserModule } from './user/user.module';
+import { OperationalLoggingInterceptor } from './common/logging/operational-logging.interceptor';
+import { OperationalAlertService } from './common/logging/operational-alert.service';
+import { PersistentLogShutdownService } from './common/logging/persistent-log-shutdown.service';
+import { HealthModule } from './health/health.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -33,8 +39,18 @@ import { UserModule } from './user/user.module';
     UserModule,
     EventModule,
     RoutingModule,
+    HealthModule,
+    MailModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    OperationalAlertService,
+    PersistentLogShutdownService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: OperationalLoggingInterceptor,
+    },
+  ],
 })
 export class AppModule {}

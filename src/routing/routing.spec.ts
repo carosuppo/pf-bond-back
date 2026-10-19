@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   GatewayTimeoutException,
+  Logger,
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -108,6 +109,37 @@ describe('Routing', () => {
     await expect(provider.calculate(...args)).rejects.toThrow(
       ServiceUnavailableException,
     );
+  });
+
+  it('registra errores externos sin incluir coordenadas ni contenido de respuesta', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          coordinates: [[-58.4, -34.6]],
+          apiKey: 'secret-key',
+        }),
+        { status: 500 },
+      ),
+    );
+
+    await expect(
+      provider.calculate(
+        { latitude: -34.6, longitude: -58.4 },
+        { latitude: -34.5, longitude: -58.3 },
+        RouteMode.DRIVING,
+      ),
+    ).rejects.toThrow(BadGatewayException);
+
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('operation=calculateRoute'),
+    );
+    const logged = JSON.stringify(logger.mock.calls);
+    expect(logged).toContain('upstreamStatus=500');
+    expect(logged).not.toContain('-34.6');
+    expect(logged).not.toContain('secret-key');
   });
 
   it('corta por timeout sin dejar la llamada pendiente', async () => {

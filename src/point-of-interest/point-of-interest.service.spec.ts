@@ -303,7 +303,7 @@ describe('PointOfInterestService', () => {
       Promise.resolve({
         ...point,
         name: data.name,
-       validity: data.validity,
+        validity: data.validity,
         endTime: data.endTime,
       }),
     );
@@ -312,20 +312,20 @@ describe('PointOfInterestService', () => {
       radius: 50,
       latitude: -34.6,
       longitude: -58.3,
-       validity: PointOfInterestValidity.TWELVE_HOURS,
+      validity: PointOfInterestValidity.TWELVE_HOURS,
     });
 
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Punto de encuentro',
-         validity: PointOfInterestValidity.TWELVE_HOURS,
-         endTime: new Date('2026-09-23T00:00:00.000Z'),
+        validity: PointOfInterestValidity.TWELVE_HOURS,
+        endTime: new Date('2026-09-23T00:00:00.000Z'),
       }),
     );
     expect(result).toMatchObject({
       name: 'Punto de encuentro',
-       validity: PointOfInterestValidity.TWELVE_HOURS,
-       endTime: new Date('2026-09-23T00:00:00.000Z'),
+      validity: PointOfInterestValidity.TWELVE_HOURS,
+      endTime: new Date('2026-09-23T00:00:00.000Z'),
     });
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'point-of-interest.created',

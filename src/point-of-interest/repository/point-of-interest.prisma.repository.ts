@@ -92,8 +92,8 @@ export class PointOfInterestPrismaRepository implements IPointOfInterestReposito
         groupId,
         deletedAt: null,
         OR: [
-            { validity: 'PERMANENT' },
-            { validity: { not: 'PERMANENT' }, endTime: { gt: new Date() } },
+          { validity: 'PERMANENT' },
+          { validity: { not: 'PERMANENT' }, endTime: { gt: new Date() } },
         ],
       },
       include: { location: true },

@@ -21,9 +21,18 @@ describe('Movement notification pipeline', () => {
     deleteByTokens: jest.fn(),
   };
   const sendToTokens = jest.fn();
-  const notifications = new NotificationService(repository, {
-    sendToTokens,
-  } as unknown as FirebasePushService);
+  const groupInboxRepository = {
+    createMany: jest.fn().mockResolvedValue(undefined),
+    findForUser: jest.fn(),
+    markRead: jest.fn(),
+  };
+  const notifications = new NotificationService(
+    repository,
+    {
+      sendToTokens,
+    } as unknown as FirebasePushService,
+    groupInboxRepository,
+  );
   const listener = new PointOfInterestCreatedListener(
     repository,
     notifications,

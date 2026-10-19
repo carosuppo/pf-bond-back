@@ -13,6 +13,12 @@ enum RoleEnum {
   MEMBER
 }
 
+enum GroupJoinRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 // Models
 enum NotificationType {
   POINT_OF_INTEREST_CREATED
@@ -41,25 +47,27 @@ enum SecurityAlertStatus {
 }
 
 model User {
-  notificationsEnabled Boolean @default(true)
-  id              Int       @id @default(autoincrement())
-  name            String
-  email           String    @unique
-  passwordHash    String
-  profilePhoto    String?   @db.Text
-  profilePhotoPath String?
-  currentLocation Location? @relation(fields: [locationId], references: [id])
-  locationId      Int?      @unique
+  notificationsEnabled Boolean   @default(true)
+  id                   Int       @id @default(autoincrement())
+  name                 String
+  email                String    @unique
+  passwordHash         String
+  profilePhoto         String?   @db.Text
+  profilePhotoPath     String?
+  currentLocation      Location? @relation(fields: [locationId], references: [id])
+  locationId           Int?      @unique
 
-  members  Member[]
-  sessions UserSession[]
-  devicePushTokens DevicePushToken[]
+  members                 Member[]
+  sessions                UserSession[]
+  devicePushTokens        DevicePushToken[]
+  groupJoinRequests       GroupJoinRequest[]
+  groupInboxNotifications GroupInboxNotification[]
 
   emailVerifiedAt         DateTime?
   emailVerificationTokens EmailVerificationToken[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DevicePushToken {
@@ -114,10 +122,12 @@ model Group {
   shareLocationMandatorily Boolean @default(false)
   invitationCode           String  @unique
 
-  members          Member[]
-  events           Event[]
-  pointsOfInterest PointOfInterest[]
-  reminders        Reminder[]
+  members            Member[]
+  events             Event[]
+  pointsOfInterest   PointOfInterest[]
+  reminders          Reminder[]
+  joinRequests       GroupJoinRequest[]
+  inboxNotifications GroupInboxNotification[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -125,47 +135,83 @@ model Group {
 }
 
 model Member {
-  notificationsEnabled Boolean @default(true)
-  notificationPreferences MemberNotificationPreference[]
+  notificationsEnabled     Boolean                        @default(true)
+  notificationPreferences  MemberNotificationPreference[]
   pointOfInterestPresences PointOfInterestPresence[]
-  id                     Int      @id @default(autoincrement())
-  userId                 Int
-  groupId                Int
-  role                   RoleEnum
-  locationSharingEnabled Boolean  @default(false)
+  id                       Int                            @id @default(autoincrement())
+  userId                   Int
+  groupId                  Int
+  role                     RoleEnum
+  locationSharingEnabled   Boolean                        @default(false)
 
   group Group @relation(fields: [groupId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
 
-  eventMembers EventMember[]
+  eventMembers   EventMember[]
   eventReminders EventReminder[]
 
   @@unique([userId, groupId])
 }
 
-model Event {
-  id              Int      @id @default(autoincrement())
-  name            String
-  description     String?
-  startAt         DateTime
-  endAt           DateTime?
+model GroupJoinRequest {
+  id          Int                    @id @default(autoincrement())
+  groupId     Int
+  userId      Int
+  status      GroupJoinRequestStatus @default(PENDING)
+  requestedAt DateTime               @default(now())
+  resolvedAt  DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId, status, requestedAt])
+  @@index([userId, status, requestedAt])
+}
+
+model GroupInboxNotification {
+  id              Int       @id @default(autoincrement())
+  recipientUserId Int
   groupId         Int
-  locationId      Int?
+  type            String
+  title           String
+  body            String
+  data            Json
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  recipient User  @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, createdAt])
+  @@index([groupId, createdAt])
+}
+
+model Event {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  startAt     DateTime
+  endAt       DateTime?
+  groupId     Int
+  locationId  Int?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  group Group @relation(fields: [groupId], references: [id])
-  members EventMember[]
-  location Location? @relation(fields: [locationId], references: [id])
+  group     Group           @relation(fields: [groupId], references: [id])
+  members   EventMember[]
+  location  Location?       @relation(fields: [locationId], references: [id])
   reminders EventReminder[]
 }
 
 model EventMember {
-  id        Int @id @default(autoincrement())
-  eventId   Int
-  memberId  Int
+  id       Int @id @default(autoincrement())
+  eventId  Int
+  memberId Int
 
   event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -175,12 +221,12 @@ model EventMember {
 }
 
 model EventReminder {
-  id          Int       @id @default(autoincrement())
-  eventId     Int
-  memberId    Int
-  leadMinutes Int
-  remindAt    DateTime
-  sentAt      DateTime?
+  id               Int       @id @default(autoincrement())
+  eventId          Int
+  memberId         Int
+  leadMinutes      Int
+  remindAt         DateTime
+  sentAt           DateTime?
   utcOffsetMinutes Int?
 
   createdAt DateTime @default(now())
@@ -225,15 +271,15 @@ enum PointOfInterestValidity {
 }
 
 model PointOfInterest {
-  color PointOfInterestColor @default(BLUE)
-  presences PointOfInterestPresence[]
-  id          Int       @id @default(autoincrement())
-  name        String
-  radius      Float
-  validity    PointOfInterestValidity @default(PERMANENT)
-  endTime     DateTime?
-  locationId  Int       @unique
-  groupId     Int
+  color      PointOfInterestColor      @default(BLUE)
+  presences  PointOfInterestPresence[]
+  id         Int                       @id @default(autoincrement())
+  name       String
+  radius     Float
+  validity   PointOfInterestValidity   @default(PERMANENT)
+  endTime    DateTime?
+  locationId Int                       @unique
+  groupId    Int
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -252,33 +298,33 @@ model Location {
   lastSeenAt      DateTime?
   user            User?
   pointOfInterest PointOfInterest?
-  events           Event[]
+  events          Event[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model MemberNotificationPreference {
-  id Int @id @default(autoincrement())
-  memberId Int
-  type NotificationType
-  enabled Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id        Int              @id @default(autoincrement())
+  memberId  Int
+  type      NotificationType
+  enabled   Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  member    Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, type])
 }
 
 model PointOfInterestPresence {
-  id Int @id @default(autoincrement())
-  memberId Int
+  id                Int             @id @default(autoincrement())
+  memberId          Int
   pointOfInterestId Int
-  isInside Boolean
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  pointOfInterest PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
+  isInside          Boolean
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  member            Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  pointOfInterest   PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, pointOfInterestId])
   @@index([pointOfInterestId])

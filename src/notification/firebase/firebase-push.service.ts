@@ -8,6 +8,7 @@ import {
   initializeApp,
 } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
+import { logErrorSafely, logSafely } from '../../common/logging/error-logging';
 
 export interface PushMessage {
   title: string;
@@ -36,8 +37,10 @@ export class FirebasePushService implements OnModuleDestroy {
     if (!projectId || !clientEmail || !privateKey) {
       this.app = null;
       this.ownsApp = false;
-      this.logger.warn(
-        'Firebase push deshabilitado: faltan variables FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL o FIREBASE_PRIVATE_KEY.',
+      logSafely(
+        this.logger,
+        'warn',
+        'operation=initializeFirebasePush outcome=disabled reason=missingConfiguration',
       );
       return;
     }
@@ -90,8 +93,10 @@ export class FirebasePushService implements OnModuleDestroy {
         ) {
           invalidTokens.push(chunk[index]);
         } else if (!result.success) {
-          this.logger.error(
-            `Firebase rechazó un envío (código: ${code ?? 'desconocido'}).`,
+          logErrorSafely(
+            this.logger,
+            'operation=sendPush provider=Firebase outcome=error',
+            result.error,
           );
         }
       });

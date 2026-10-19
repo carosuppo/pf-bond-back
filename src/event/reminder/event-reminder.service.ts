@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { logErrorSafely } from '../../common/logging/error-logging';
 
 import { NotificationService } from '../../notification/notification.service';
 import type { IEventRepository } from '../repository/event.repository.interface';
@@ -171,10 +172,10 @@ export class EventReminderService {
           ),
         });
       } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : 'Error desconocido';
-        this.logger.error(
-          `No se pudo enviar el recordatorio ${reminder.id} del evento ${reminder.eventId}: ${message}`,
+        logErrorSafely(
+          this.logger,
+          'operation=sendEventReminder outcome=error',
+          error,
         );
       }
     }

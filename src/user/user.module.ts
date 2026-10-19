@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MailModule } from '../mail/mail.module';
-import { PrismaService } from '../prisma/prisma.service';
 import { SessionAuthGuard } from './guard/session-auth.guard';
 import { AccountDeletionPrismaRepository } from './repository/account-deletion.prisma.repository';
 import { EmailVerificationTokenPrismaRepository } from './repository/email-verification-token.prisma.repository';
@@ -20,7 +19,6 @@ import { UserService } from './user.service';
     UserService,
     SupabaseStorageService,
     AccountDeletionService,
-    PrismaService,
     SessionAuthGuard,
     SessionAuthenticationService,
     {

@@ -2,6 +2,7 @@ import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { SecurityEventType } from '@prisma/client';
 import { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../user/interface/authenticated-request.interface';
+import { logErrorSafely, logSafely } from '../common/logging/error-logging';
 import {
   ObservedSecurityEvent,
   SecurityMonitoringService,
@@ -21,20 +22,52 @@ export class SecurityMonitoringMiddleware implements NestMiddleware {
     next: NextFunction,
   ): void {
     response.once('finish', () => {
+      if (response.statusCode === 403) {
+        this.logForbiddenRequest(request);
+      }
+
       const event = this.detectEvent(request, response.statusCode);
       if (!event) return;
 
       void this.securityMonitoringService
         .record(event)
         .catch((error: unknown) => {
-          this.logger.error(
-            'No se pudo registrar o evaluar un evento de seguridad.',
-            error instanceof Error ? error.stack : String(error),
+          logErrorSafely(
+            this.logger,
+            'operation=recordSecurityEvent outcome=error',
+            error,
           );
         });
     });
 
     next();
+  }
+
+  private logForbiddenRequest(request: AuthenticatedRequest): void {
+    const routePath = (
+      request.route as unknown as { path?: unknown } | undefined
+    )?.path;
+    const segments = typeof routePath === 'string' ? routePath.split('/') : [];
+    const routeSegments = segments.filter((segment) => segment.length > 0);
+    const firstSegment = routeSegments[0]?.replace(/[^A-Za-z0-9_.-]/g, '');
+    const moduleName = firstSegment
+      ? `${firstSegment[0].toUpperCase()}${firstSegment.slice(1)}`
+      : 'HttpRequest';
+    const operationPath = routeSegments
+      .map((segment) =>
+        segment.startsWith(':')
+          ? 'param'
+          : segment.replace(/[^A-Za-z0-9_.-]/g, ''),
+      )
+      .filter((segment) => segment.length > 0)
+      .join('/');
+    const method = request.method.toUpperCase();
+
+    logSafely(
+      this.logger,
+      'warn',
+      `module=${moduleName} operation=${method}_${operationPath || 'unmatched'} status=403`,
+    );
   }
 
   private detectEvent(

@@ -35,13 +35,9 @@ describe('Notification preferences', () => {
     const result = await service.get(7);
     expect(result.enabled).toBe(true);
     expect(result.groups[0].enabled).toBe(true);
-    expect(Object.values(result.groups[0].types)).toEqual([
-      true,
-      true,
-      true,
-      true,
-      true,
-    ]);
+    expect(Object.values(result.groups[0].types)).toEqual(
+      Object.values(NotificationType).map(() => true),
+    );
     expect(result.groups[0].types.EVENT_CANCELLED).toBe(true);
   });
   it('an explicit false affects only its type', async () => {

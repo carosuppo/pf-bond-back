@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { GroupEventService } from '../group/group-event.service';
+import { logErrorSafely } from '../common/logging/error-logging';
 
 import { CurrentLocationResponseDto } from './dto/current-location-response.dto';
 
@@ -71,9 +72,10 @@ export class LocationService {
     try {
       await this.presenceService.evaluate(userId, location);
     } catch (error: unknown) {
-      this.logger.error(
-        'No se pudieron evaluar las presencias de POI',
-        error instanceof Error ? error.stack : String(error),
+      logErrorSafely(
+        this.logger,
+        'operation=evaluatePointOfInterestPresence outcome=error',
+        error,
       );
     }
     return location;

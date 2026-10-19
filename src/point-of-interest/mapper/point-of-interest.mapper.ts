@@ -1,7 +1,4 @@
-import {
-  PointOfInterestColor,
-  PointOfInterestValidity,
-} from '@prisma/client';
+import { PointOfInterestColor, PointOfInterestValidity } from '@prisma/client';
 import type { CreatePointOfInterestDto } from '../dto/create-point-of-interest.dto';
 import type { PointOfInterestResponseDto } from '../dto/point-of-interest-response.dto';
 import type { UpdatePointOfInterestDto } from '../dto/update-point-of-interest.dto';

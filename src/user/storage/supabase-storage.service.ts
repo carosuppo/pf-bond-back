@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
+import { logErrorSafely } from '../../common/logging/error-logging';
 
 @Injectable()
 export class SupabaseStorageService {
@@ -49,7 +50,11 @@ export class SupabaseStorageService {
       });
 
     if (error) {
-      this.logger.error(`Error de Supabase Storage al subir: ${error.message}`);
+      logErrorSafely(
+        this.logger,
+        'operation=uploadProfilePhoto provider=SupabaseStorage outcome=error',
+        error,
+      );
       throw new InternalServerErrorException(
         'No se pudo guardar la imagen de perfil.',
       );
@@ -69,8 +74,10 @@ export class SupabaseStorageService {
       });
 
     if (error) {
-      this.logger.error(
-        `Error de Supabase Storage al listar imágenes de grupos: ${error.message}`,
+      logErrorSafely(
+        this.logger,
+        'operation=listDefaultGroupImages provider=SupabaseStorage outcome=error',
+        error,
       );
       throw new InternalServerErrorException(
         'No se pudieron obtener las imágenes predeterminadas de grupos.',
@@ -102,8 +109,10 @@ export class SupabaseStorageService {
       .remove([path]);
 
     if (error) {
-      this.logger.error(
-        `Error de Supabase Storage al eliminar: ${error.message}`,
+      logErrorSafely(
+        this.logger,
+        'operation=removeProfilePhoto provider=SupabaseStorage outcome=error',
+        error,
       );
       throw new InternalServerErrorException(
         'No se pudo eliminar la imagen de perfil anterior.',
