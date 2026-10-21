@@ -3,7 +3,7 @@ FROM postgres:17-alpine
 ARG WAL_G_VERSION=3.0.9
 ARG TARGETARCH
 
-RUN apk add --no-cache curl gcompat restic python3 tzdata \
+RUN apk add --no-cache curl gcompat restic rclone python3 tzdata \
     && case "$TARGETARCH" in \
         amd64) WAL_G_ARCH=amd64; WAL_G_SHA256=444ce216230c254edef803e098a59a1746806da3e0d55671d7b0f0082db14ef4 ;; \
         arm64) WAL_G_ARCH=aarch64; WAL_G_SHA256=cb37c5f8391bd8ef2efceeb9c6995059c0abf2fa74b9b717b42a16a7c93cfde1 ;; \

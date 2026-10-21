@@ -16,14 +16,21 @@ Crear un proyecto Supabase separado para backups y un bucket privado llamado `bo
 
 Supabase S3 no ofrece versionado de objetos y sus claves S3 tienen acceso a todos los buckets del proyecto, por lo que el proyecto dedicado limita el alcance de esas credenciales. WAL-G y Restic aplican su propia retención; no configurar reglas de lifecycle que borren objetos directamente del bucket.
 
-Crear `backup/.env` copiando `backup/.env.example`. Generar una clave de 32 bytes para WAL-G con `openssl rand -base64 32` y una contraseña aleatoria larga para Restic. Guardar ambas fuera del VPS, en un gestor de secretos seguro, y configurar permisos restrictivos para `backup/.env` en el servidor. La pérdida de las claves impide descifrar las copias.
+Crear `backup/.env` copiando `backup/.env.example`. En instalaciones existentes, actualizar también `RESTIC_REPOSITORY` a `rclone:supabase:bond-backups/bond/media`. Generar una clave de 32 bytes para WAL-G con `openssl rand -base64 32` y una contraseña aleatoria larga para Restic. Guardar ambas fuera del VPS, en un gestor de secretos seguro, y configurar permisos restrictivos para `backup/.env` en el servidor. La pérdida de las claves impide descifrar las copias.
 
-El repositorio de Restic se inicializa una sola vez después de crear el bucket y configurar las credenciales:
+El repositorio de Restic usa rclone para acceder al endpoint S3 de Supabase, que incluye una ruta base. Después de cambiar la imagen del runner, reconstruirla y recrear solo ese servicio para aplicar la configuración de rclone:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec backup-runner restic init
+docker compose -f docker-compose.prod.yml build postgres
+docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backup-runner
+```
+
+Inicializar el repositorio de Restic una sola vez después de crear el bucket y configurar las credenciales:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backup-runner sh -c '. /run/bond-backup.env; restic init'
 docker compose -f docker-compose.prod.yml exec backup-runner python3 /usr/local/bin/backup_runner.py db-full
-docker compose -f docker-compose.prod.yml exec backup-runner python3 /usr/local/bin/backup_runner.py media
+docker compose -f docker-compose.prod.yml exec backup-runner sh -c '. /run/bond-backup.env; python3 /usr/local/bin/backup_runner.py media'
 ```
 
 El servidor SMTP usa los valores `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD` y `MAIL_FROM` de `.env`. Los fallos se notifican a `doubletpf@gmail.com`. Para detectar también la ausencia de ejecuciones, configurar monitores externos de Healthchecks.io y colocar sus URLs en `BACKUP_DB_HEARTBEAT_URL`, `BACKUP_MEDIA_HEARTBEAT_URL` y `BACKUP_WAL_HEARTBEAT_URL`. Configurar las alertas de esos monitores para enviarlas a `doubletpf@gmail.com`.
@@ -67,8 +74,8 @@ El ejemplo de descarga usa `LATEST`. Para recuperar un instante concreto se debe
 Elegir un snapshot de Restic cuyo instante permita restaurar el estado de imágenes deseado. Antes de escribir archivos, apuntar `SUPABASE_URL`, `SUPABASE_SECRET_KEY` y `SUPABASE_PROFILE_PHOTOS_BUCKET` a un bucket de prueba para un ejercicio aislado.
 
 ```bash
-docker compose -f docker-compose.prod.yml exec backup-runner restic snapshots
-docker compose -f docker-compose.prod.yml exec -T backup-runner sh -c 'restic dump SNAPSHOT_ID supabase-storage.tar | python3 /usr/local/bin/backup_runner.py restore-media'
+docker compose -f docker-compose.prod.yml exec backup-runner sh -c '. /run/bond-backup.env; restic snapshots'
+docker compose -f docker-compose.prod.yml exec -T backup-runner sh -c '. /run/bond-backup.env; restic dump SNAPSHOT_ID supabase-storage.tar | python3 /usr/local/bin/backup_runner.py restore-media'
 ```
 
 El procedimiento vuelve a subir los objetos con sus rutas originales y el tipo MIME derivado de la extensión. Para una recuperación de producción, restaurar los archivos al bucket que usa Bond y mantenerlo emparejado con el punto de recuperación de PostgreSQL.
