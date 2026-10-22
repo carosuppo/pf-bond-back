@@ -34,4 +34,4 @@ Para obtener la clave de host, ejecutar `ssh-keyscan -t ed25519 HOST_DE_LA_VPS` 
 
 Antes de habilitar Actions, comprobar que `bond` puede ejecutar Docker con `docker compose -f docker-compose.prod.yml ps`. Si recibe un error de permisos, hay que configurar acceso de Docker para `bond`; pertenecer al grupo `docker` equivale a tener privilegios de root.
 
-El workflow reconstruye y levanta los servicios de producción con `docker compose -f docker-compose.prod.yml up -d --build`. El backend ejecuta `prisma migrate deploy` al iniciar.
+El workflow reconstruye y levanta los servicios de producción con `docker compose -f docker-compose.prod.yml up -d --build`, reinicia Caddy para recargar su `Caddyfile` y muestra el estado de los contenedores. El backend ejecuta `prisma migrate deploy` al iniciar.

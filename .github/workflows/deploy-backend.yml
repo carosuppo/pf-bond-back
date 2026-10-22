@@ -35,5 +35,6 @@ jobs:
           cd /home/bond/apps/pf-bond-back
           git pull --ff-only origin main
           docker compose -f docker-compose.prod.yml up -d --build
+          docker compose -f docker-compose.prod.yml restart caddy
           docker compose -f docker-compose.prod.yml ps
           REMOTE
