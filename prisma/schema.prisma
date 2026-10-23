@@ -25,6 +25,7 @@ enum NotificationType {
   POINT_OF_INTEREST_UPDATED
   POINT_OF_INTEREST_ENTERED
   POINT_OF_INTEREST_EXITED
+  EVENT_CREATED
   EVENT_UPDATED
   EVENT_CANCELLED
 }
@@ -128,6 +129,7 @@ model Group {
   reminders          Reminder[]
   joinRequests       GroupJoinRequest[]
   inboxNotifications GroupInboxNotification[]
+  expenseAccounts  ExpenseAccount[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -149,6 +151,7 @@ model Member {
 
   eventMembers   EventMember[]
   eventReminders EventReminder[]
+  expenseAccountMembers ExpenseAccountMember[]
 
   @@unique([userId, groupId])
 }
@@ -206,6 +209,7 @@ model Event {
   members   EventMember[]
   location  Location?       @relation(fields: [locationId], references: [id])
   reminders EventReminder[]
+  expenseAccounts ExpenseAccount[]
 }
 
 model EventMember {
@@ -238,6 +242,35 @@ model EventReminder {
   @@unique([eventId, memberId, leadMinutes])
   @@index([eventId])
   @@index([remindAt])
+}
+
+model ExpenseAccount {
+  id        Int      @id @default(autoincrement())
+  name      String
+  groupId   Int
+  eventId   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group   Group  @relation(fields: [groupId], references: [id])
+  event   Event? @relation(fields: [eventId], references: [id])
+  members ExpenseAccountMember[]
+
+  @@index([groupId])
+  @@index([eventId])
+}
+
+model ExpenseAccountMember {
+  id               Int @id @default(autoincrement())
+  expenseAccountId Int
+  memberId         Int
+
+  expenseAccount ExpenseAccount @relation(fields: [expenseAccountId], references: [id], onDelete: Cascade)
+  member         Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseAccountId, memberId])
+  @@index([memberId])
 }
 
 model Reminder {

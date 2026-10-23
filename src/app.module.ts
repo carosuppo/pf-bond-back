@@ -7,6 +7,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EventModule } from './event/event.module';
+import { ExpenseAccountModule } from './expense-account/expense-account.module';
 import { GroupModule } from './group/group.module';
 import { LocationModule } from './location/location.module';
 import { MemberModule } from './member/member.module';
@@ -38,6 +39,7 @@ import { MailModule } from './mail/mail.module';
     SecurityMonitoringModule,
     UserModule,
     EventModule,
+    ExpenseAccountModule,
     RoutingModule,
     HealthModule,
     MailModule,
