@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
+import { logErrorSafely } from '../common/logging/error-logging';
 
 export interface SecurityAlertEmailData {
   type: string;
@@ -14,8 +15,19 @@ export interface SecurityAlertEmailData {
   reason: string;
 }
 
+export interface OperationalAlertEmailData {
+  module: string;
+  operation: string;
+  failureCount: number;
+  windowSeconds: number;
+  detectedAt: Date;
+  errorType: string;
+  errorCode?: string;
+}
+
 @Injectable()
 export class MailService {
+  private readonly logger = new Logger(MailService.name);
   private readonly transporter: Transporter;
   private readonly mailFrom: string;
 
@@ -43,12 +55,13 @@ export class MailService {
     name: string,
     verificationUrl: string,
   ): Promise<void> {
-    await this.transporter.sendMail({
-      from: this.mailFrom,
-      to,
-      subject: 'Verificá tu cuenta en Bond',
-      text: `Hola ${name}. Para verificar tu cuenta en Bond, abrí este link: ${verificationUrl}`,
-      html: `
+    try {
+      await this.transporter.sendMail({
+        from: this.mailFrom,
+        to,
+        subject: 'Verificá tu cuenta en Bond',
+        text: `Hola ${name}. Para verificar tu cuenta en Bond, abrí este link: ${verificationUrl}`,
+        html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.5;">
           <h2>Verificá tu cuenta en Bond</h2>
           <p>Hola ${name},</p>
@@ -72,7 +85,15 @@ export class MailService {
           <p>Si no creaste esta cuenta, podés ignorar este correo.</p>
         </div>
       `,
-    });
+      });
+    } catch (error: unknown) {
+      logErrorSafely(
+        this.logger,
+        'operation=sendEmailVerification provider=SMTP outcome=error',
+        error,
+      );
+      throw error;
+    }
   }
 
   async sendSecurityAlert(
@@ -94,12 +115,13 @@ export class MailService {
       `Motivo: ${alert.reason}`,
     ].join('\n');
 
-    await this.transporter.sendMail({
-      from: this.mailFrom,
-      to,
-      subject: `[Bond Security] ${alert.type}`,
-      text,
-      html: `
+    try {
+      await this.transporter.sendMail({
+        from: this.mailFrom,
+        to,
+        subject: `[Bond Security] ${alert.type}`,
+        text,
+        html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.5;">
           <h2>Alerta de seguridad de Bond</h2>
           <p>Se detectó un patrón de seguridad sospechoso.</p>
@@ -115,7 +137,62 @@ export class MailService {
           <p><strong>Motivo:</strong> ${this.escapeHtml(alert.reason)}</p>
         </div>
       `,
-    });
+      });
+    } catch (error: unknown) {
+      logErrorSafely(
+        this.logger,
+        'operation=sendSecurityAlert provider=SMTP outcome=error',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async sendOperationalAlert(
+    to: string,
+    alert: OperationalAlertEmailData,
+  ): Promise<void> {
+    const detectedAt = alert.detectedAt.toISOString();
+    const text = [
+      'Bond detectó errores operativos repetidos.',
+      `Módulo: ${alert.module}`,
+      `Operación: ${alert.operation}`,
+      `Errores: ${alert.failureCount}`,
+      `Ventana: ${alert.windowSeconds} segundos`,
+      `Fecha/hora: ${detectedAt}`,
+      `Tipo: ${alert.errorType}`,
+      ...(alert.errorCode ? [`Código: ${alert.errorCode}`] : []),
+    ].join('\n');
+
+    try {
+      await this.transporter.sendMail({
+        from: this.mailFrom,
+        to,
+        subject: '[Bond] Errores operativos repetidos',
+        text,
+        html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2>Errores operativos repetidos en Bond</h2>
+          <ul>
+            <li><strong>Módulo:</strong> ${this.escapeHtml(alert.module)}</li>
+            <li><strong>Operación:</strong> ${this.escapeHtml(alert.operation)}</li>
+            <li><strong>Errores:</strong> ${alert.failureCount}</li>
+            <li><strong>Ventana:</strong> ${alert.windowSeconds} segundos</li>
+            <li><strong>Fecha/hora:</strong> ${this.escapeHtml(detectedAt)}</li>
+            <li><strong>Tipo:</strong> ${this.escapeHtml(alert.errorType)}</li>
+            ${alert.errorCode ? `<li><strong>Código:</strong> ${this.escapeHtml(alert.errorCode)}</li>` : ''}
+          </ul>
+        </div>
+      `,
+      });
+    } catch (error: unknown) {
+      logErrorSafely(
+        this.logger,
+        'operation=sendOperationalAlert provider=SMTP outcome=error',
+        error,
+      );
+      throw error;
+    }
   }
 
   private escapeHtml(value: string): string {

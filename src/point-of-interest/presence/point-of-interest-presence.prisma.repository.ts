@@ -27,7 +27,10 @@ export class PointOfInterestPresencePrismaRepository implements IPointOfInterest
                 deletedAt: null,
                 OR: [
                   { validity: 'PERMANENT' },
-                  { validity: { not: 'PERMANENT' }, endTime: { gt: new Date() } },
+                  {
+                    validity: { not: 'PERMANENT' },
+                    endTime: { gt: new Date() },
+                  },
                 ],
               },
               include: { location: true },

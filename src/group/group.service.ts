@@ -4,11 +4,15 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { RoleEnum } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { logErrorSafely } from '../common/logging/error-logging';
+import { NotificationService } from '../notification/notification.service';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
+import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { MAX_PROFILE_PHOTO_SIZE } from '../user/constants/profile-photo.constants';
 import type { ProfilePhotoFile } from '../user/interface/profile-photo-file.interface';
 import { SupabaseStorageService } from '../user/storage/supabase-storage.service';
@@ -17,13 +21,24 @@ import { GetGroupResponseDto } from './dto/get-group-response.dto';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { JoinGroupResponseDto } from './dto/join-group-response.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
+import {
+  GroupJoinRequestActionResponseDto,
+  GroupJoinRequestResponseDto,
+} from './dto/group-join-request-response.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
+import { GroupEventService } from './group-event.service';
 import { GroupMapper } from './mapper/group.mapper';
 import type { IGroupRepository } from './repository/group.repository.interface';
+import type {
+  GroupJoinRequestResolution,
+  IGroupJoinRequestRepository,
+} from './repository/group-join-request.repository.interface';
 
 @Injectable()
 export class GroupService {
+  private readonly logger = new Logger(GroupService.name);
+
   constructor(
     @Inject('groupRepository')
     private readonly groupRepository: IGroupRepository,
@@ -31,6 +46,10 @@ export class GroupService {
     @Inject('memberRepository')
     private readonly memberRepository: IMemberRepository,
     private readonly supabaseStorageService: SupabaseStorageService,
+    @Inject('groupJoinRequestRepository')
+    private readonly groupJoinRequestRepository: IGroupJoinRequestRepository,
+    private readonly notificationService: NotificationService,
+    private readonly groupEventService: GroupEventService,
   ) {}
 
   async createGroup(
@@ -83,6 +102,68 @@ export class GroupService {
     const updatedGroup = await this.groupRepository.update(id, persistenceData);
 
     return GroupMapper.toResponse(updatedGroup);
+  }
+
+  async delete(id: number, userId: number): Promise<void> {
+    const group = await this.groupRepository.findById(id);
+
+    if (!group) {
+      throw new NotFoundException('El grupo no existe.');
+    }
+
+    const member = await this.memberRepository.findByUserAndGroup(userId, id);
+
+    if (!member) {
+      throw new ForbiddenException('No perteneces a este grupo.');
+    }
+
+    if (member.role !== RoleEnum.ADMIN) {
+      throw new ForbiddenException(
+        'Solo los administradores pueden eliminar el grupo.',
+      );
+    }
+
+    const deleted = await this.groupRepository.softDelete(id);
+
+    if (!deleted) {
+      throw new NotFoundException('El grupo no existe.');
+    }
+
+    this.groupEventService.publish({
+      event: 'groupDeleted',
+      data: { groupId: id, actorUserId: userId },
+    });
+  }
+
+  async leave(id: number, userId: number): Promise<MessageResponseDto> {
+    const result = await this.groupRepository.leave(id, userId);
+
+    if (result.status === 'notFound') {
+      throw new NotFoundException('El grupo no existe.');
+    }
+
+    if (result.status === 'notMember') {
+      throw new ForbiddenException('No perteneces a este grupo.');
+    }
+
+    if (result.status === 'deleted') {
+      this.groupEventService.publish({
+        event: 'groupDeleted',
+        data: { groupId: id, actorUserId: userId },
+      });
+    } else {
+      this.groupEventService.publish({
+        event: 'memberLeft',
+        data: {
+          groupId: id,
+          memberId: result.memberId,
+          userId,
+          actorUserId: userId,
+        },
+      });
+    }
+
+    return { message: 'Dejaste el grupo.' };
   }
 
   async updateImage(
@@ -208,15 +289,118 @@ export class GroupService {
       );
     }
 
-    await this.memberRepository.addMember({
-      groupId: group.id,
+    const submission = await this.groupJoinRequestRepository.submit(
+      group.id,
       userId,
-      role: RoleEnum.MEMBER,
-    });
-
-    return GroupMapper.toJoinResponse(
-      group,
-      'Ingresaste al grupo correctamente.',
     );
+
+    if (submission.status === 'alreadyMember') {
+      throw new ConflictException({
+        message: 'Ya eres miembro de este grupo.',
+        group: { id: group.id, name: group.name },
+        alreadyPending: false,
+      });
+    }
+
+    if (submission.status === 'created') {
+      const administratorIds =
+        await this.groupJoinRequestRepository.findAdminUserIds(group.id);
+      try {
+        await this.notificationService.sendToUsers(administratorIds, {
+          title: 'Nueva solicitud de ingreso',
+          body: `Hay una nueva solicitud para ingresar al grupo ${group.name}.`,
+          data: {
+            type: 'GROUP_JOIN_REQUEST',
+            groupId: String(group.id),
+            requestId: String(submission.requestId),
+          },
+        });
+      } catch (error: unknown) {
+        logErrorSafely(
+          this.logger,
+          'operation=notifyGroupAdministratorsOfJoinRequest outcome=error',
+          error,
+        );
+      }
+    }
+
+    return {
+      message:
+        submission.status === 'pending'
+          ? 'Ya enviaste una solicitud para ingresar a este grupo.'
+          : 'Tu solicitud para ingresar al grupo fue enviada correctamente.',
+      group: { id: group.id, name: group.name },
+      alreadyPending: submission.status === 'pending',
+    };
+  }
+
+  async getJoinRequests(
+    adminUserId: number,
+  ): Promise<GroupJoinRequestResponseDto[]> {
+    return this.groupJoinRequestRepository.findPendingForAdmin(adminUserId);
+  }
+
+  async acceptJoinRequest(
+    requestId: number,
+    adminUserId: number,
+  ): Promise<GroupJoinRequestActionResponseDto> {
+    return this.resolveJoinRequest(
+      await this.groupJoinRequestRepository.accept(requestId, adminUserId),
+      true,
+    );
+  }
+
+  async rejectJoinRequest(
+    requestId: number,
+    adminUserId: number,
+  ): Promise<GroupJoinRequestActionResponseDto> {
+    return this.resolveJoinRequest(
+      await this.groupJoinRequestRepository.reject(requestId, adminUserId),
+      false,
+    );
+  }
+
+  private async resolveJoinRequest(
+    result: GroupJoinRequestResolution,
+    accepted: boolean,
+  ): Promise<GroupJoinRequestActionResponseDto> {
+    if (result.status === 'notFound') {
+      throw new NotFoundException('La solicitud ya no está disponible.');
+    }
+    if (result.status === 'notPending') {
+      throw new ConflictException('La solicitud ya fue resuelta.');
+    }
+    if (result.status === 'forbidden') {
+      throw new ForbiddenException(
+        'Solo los administradores pueden gestionar solicitudes de ingreso.',
+      );
+    }
+
+    try {
+      await this.notificationService.sendToUser(result.requesterUserId, {
+        title: accepted ? 'Solicitud aceptada' : 'Solicitud rechazada',
+        body: accepted
+          ? `Tu solicitud para ingresar al grupo ${result.groupName} fue aceptada.`
+          : `Tu solicitud para ingresar al grupo ${result.groupName} fue rechazada.`,
+        data: {
+          type: accepted
+            ? 'GROUP_JOIN_REQUEST_ACCEPTED'
+            : 'GROUP_JOIN_REQUEST_REJECTED',
+          groupId: String(result.groupId),
+        },
+      });
+    } catch (error: unknown) {
+      logErrorSafely(
+        this.logger,
+        'operation=notifyRequesterOfJoinRequestResolution outcome=error',
+        error,
+      );
+    }
+
+    return {
+      message: accepted
+        ? 'Solicitud aceptada correctamente.'
+        : 'Solicitud rechazada correctamente.',
+    };
   }
 }

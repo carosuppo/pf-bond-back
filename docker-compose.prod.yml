@@ -1,22 +1,87 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: bond-postgres-backup:17
+    build:
+      context: .
+      dockerfile: backup/Dockerfile
     restart: unless-stopped
     env_file:
       - .env
+      - backup/.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=wal-g wal-push %p
+      - -c
+      - restore_command=wal-g wal-fetch %f %p
+      - -c
+      - archive_timeout=240
+      - -c
+      - wal_level=replica
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      test:
+        ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backup-runner:
+    image: bond-postgres-backup:17
+    restart: unless-stopped
+    env_file:
+      - backup/.env
+    environment:
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD debe estar configurada}
+      PGDATABASE: ${POSTGRES_DB:-bond}
+      PGDATA: /var/lib/postgresql/data
+      SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL debe estar configurada}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?SUPABASE_SECRET_KEY debe estar configurada}
+      SUPABASE_PROFILE_PHOTOS_BUCKET: ${SUPABASE_PROFILE_PHOTOS_BUCKET:-Bond}
+      BACKUP_ALERT_EMAIL: ${BACKUP_ALERT_EMAIL:-doubletpf@gmail.com}
+      BACKUP_SMTP_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      BACKUP_SMTP_PORT: ${MAIL_PORT:-587}
+      BACKUP_SMTP_USER: ${MAIL_USER:-}
+      BACKUP_SMTP_PASSWORD: ${MAIL_PASSWORD:-}
+      BACKUP_SMTP_FROM: ${MAIL_FROM:-}
+      BACKUP_STATE_DIRECTORY: /var/lib/bond-backup
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:ro
+      - backup_state:/var/lib/bond-backup
+    entrypoint: ['/bin/sh', '/usr/local/bin/backup-entrypoint.sh']
+    command: []
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   backend:
     build:
       context: .
       target: production
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+    volumes:
+      - backend_logs:/usr/src/app/logs
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:' + (process.env.PORT ?? '3000') + '/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     env_file:
       - .env
     expose:
@@ -37,9 +102,14 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  backup_state:
+    name: bond-backup-state
+  backend_logs:
+    name: bond-backend-prod-logs
   caddy_data:
   caddy_config:

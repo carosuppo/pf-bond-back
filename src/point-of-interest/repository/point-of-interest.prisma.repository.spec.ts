@@ -56,7 +56,9 @@ describe('PointOfInterestPrismaRepository temporal filtering', () => {
     >;
     const cleanup = cleanupCalls[0][0];
     expect(cleanup.where.pointOfInterest.groupId).toBe(3);
-    expect(cleanup.where.pointOfInterest.validity).toEqual({ not: 'PERMANENT' });
+    expect(cleanup.where.pointOfInterest.validity).toEqual({
+      not: 'PERMANENT',
+    });
     expect(cleanup.where.pointOfInterest.endTime.lte).toBeInstanceOf(Date);
     expect(cleanup.where.pointOfInterest).not.toHaveProperty('deletedAt');
   });

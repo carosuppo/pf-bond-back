@@ -13,9 +13,11 @@ import {
 
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
+import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
 import { UnregisterDeviceTokenDto } from './dto/unregister-device-token.dto';
 import { NotificationService } from './notification.service';
+import { GroupInboxNotificationResponseDto } from './dto/group-inbox-notification-response.dto';
 
 import { NotificationPreferencesService } from './notification-preferences.service';
 import {
@@ -30,6 +32,25 @@ export class NotificationController {
     private readonly notificationService: NotificationService,
     private readonly preferences: NotificationPreferencesService,
   ) {}
+  @Get('inbox')
+  getInbox(
+    @CurrentUser() userId: number,
+  ): Promise<GroupInboxNotificationResponseDto[]> {
+    return this.notificationService.getInbox(userId);
+  }
+
+  @Patch('inbox/:notificationId/read')
+  async markInboxNotificationRead(
+    @CurrentUser() userId: number,
+    @Param('notificationId', ParseIntPipe) notificationId: number,
+  ): Promise<MessageResponseDto> {
+    await this.notificationService.markInboxNotificationRead(
+      userId,
+      notificationId,
+    );
+    return { message: 'Notificación actualizada.' };
+  }
+
   @Get('preferences')
   getPreferences(@CurrentUser() userId: number) {
     return this.preferences.get(userId);

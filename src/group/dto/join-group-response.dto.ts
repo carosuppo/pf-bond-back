@@ -6,4 +6,5 @@ export class JoinedGroupResponseDto {
 export class JoinGroupResponseDto {
   message!: string;
   group!: JoinedGroupResponseDto;
+  alreadyPending!: boolean;
 }

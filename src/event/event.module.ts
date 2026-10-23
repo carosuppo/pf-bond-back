@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { GroupModule } from '../group/group.module';
 import { MemberModule } from '../member/member.module';
 import { NotificationModule } from '../notification/notification.module';
-import { PrismaService } from '../prisma/prisma.service';
 import { UserModule } from '../user/user.module';
 import { EventController } from './event.controller';
 import { EventService } from './event.service';
@@ -20,7 +19,6 @@ import { EventValidator } from './validator/event.validator';
     EventService,
     EventReminderService,
     EventReminderScheduler,
-    PrismaService,
     {
       provide: 'eventValidator',
       useClass: EventValidator,

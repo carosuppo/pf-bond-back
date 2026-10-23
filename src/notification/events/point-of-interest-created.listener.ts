@@ -9,6 +9,7 @@ import {
 } from './point-of-interest-exited.event';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { logErrorSafely, logSafely } from '../../common/logging/error-logging';
 
 import { NotificationService } from '../notification.service';
 import type { IDevicePushTokenRepository } from '../repository/device-push-token.repository.interface';
@@ -83,10 +84,10 @@ export class PointOfInterestCreatedListener {
     content: PointOfInterestNotificationContent,
   ): void {
     void this.handle(event, content).catch((error: unknown) => {
-      const message =
-        error instanceof Error ? error.message : 'Error desconocido';
-      this.logger.error(
-        `No se pudo enviar la notificación del POI ${event.pointOfInterestId}: ${message}`,
+      logErrorSafely(
+        this.logger,
+        `operation=sendPointOfInterestNotification type=${content.type} outcome=error`,
+        error,
       );
     });
   }
@@ -102,8 +103,10 @@ export class PointOfInterestCreatedListener {
       );
 
     if (!context) {
-      this.logger.warn(
-        `No se encontró contexto para notificar el POI ${event.pointOfInterestId}.`,
+      logSafely(
+        this.logger,
+        'warn',
+        `operation=resolvePointOfInterestNotificationContext type=${content.type} outcome=notFound`,
       );
       return;
     }

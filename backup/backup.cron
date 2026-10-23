@@ -1,0 +1,8 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+TZ=UTC
+0 3 * * 0 . /run/bond-backup.env; python3 /usr/local/bin/backup_runner.py db-full >> /proc/1/fd/1 2>&1
+15 3 * * * . /run/bond-backup.env; python3 /usr/local/bin/backup_runner.py db-incremental >> /proc/1/fd/1 2>&1
+0 4 * * * . /run/bond-backup.env; python3 /usr/local/bin/backup_runner.py media >> /proc/1/fd/1 2>&1
+30 4 * * * . /run/bond-backup.env; python3 /usr/local/bin/backup_runner.py retention >> /proc/1/fd/1 2>&1
+* * * * * . /run/bond-backup.env; python3 /usr/local/bin/backup_runner.py monitor-wal >> /proc/1/fd/1 2>&1

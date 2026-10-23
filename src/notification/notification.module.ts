@@ -12,6 +12,7 @@ import { FirebasePushService } from './firebase/firebase-push.service';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { PrismaDevicePushTokenRepository } from './repository/prisma-device-push-token.repository';
+import { GroupInboxPrismaRepository } from './repository/group-inbox.prisma.repository';
 
 @Module({
   imports: [PrismaModule, UserModule],
@@ -31,6 +32,10 @@ import { PrismaDevicePushTokenRepository } from './repository/prisma-device-push
     {
       provide: 'devicePushTokenRepository',
       useClass: PrismaDevicePushTokenRepository,
+    },
+    {
+      provide: 'groupInboxRepository',
+      useClass: GroupInboxPrismaRepository,
     },
   ],
   exports: [NotificationService],

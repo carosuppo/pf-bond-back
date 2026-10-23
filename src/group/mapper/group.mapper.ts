@@ -76,6 +76,7 @@ export class GroupMapper {
   ): JoinGroupResponseDto {
     return {
       message,
+      alreadyPending: false,
       group: {
         id: entity.id,
         name: entity.name,

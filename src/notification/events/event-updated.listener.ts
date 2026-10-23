@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { logErrorSafely, logSafely } from '../../common/logging/error-logging';
 
 import { NotificationService } from '../notification.service';
 import type { IDevicePushTokenRepository } from '../repository/device-push-token.repository.interface';
@@ -18,10 +19,10 @@ export class EventUpdatedListener {
   @OnEvent(EVENT_UPDATED_EVENT)
   onEventUpdated(event: EventUpdatedEvent): void {
     void this.handle(event).catch((error: unknown) => {
-      const message =
-        error instanceof Error ? error.message : 'Error desconocido';
-      this.logger.error(
-        `No se pudo enviar la notificación del evento ${event.eventId}: ${message}`,
+      logErrorSafely(
+        this.logger,
+        'operation=sendEventUpdatedNotification outcome=error',
+        error,
       );
     });
   }
@@ -34,8 +35,10 @@ export class EventUpdatedListener {
       );
 
     if (!context) {
-      this.logger.warn(
-        `No se encontró contexto para notificar el evento ${event.eventId}.`,
+      logSafely(
+        this.logger,
+        'warn',
+        'operation=resolveEventNotificationContext outcome=notFound',
       );
       return;
     }

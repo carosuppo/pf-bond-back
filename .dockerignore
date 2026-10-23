@@ -35,6 +35,7 @@ Thumbs.db
 .env
 .env.*
 .env.temp
+backup/.env
 
 # Temporary folders
 .temp

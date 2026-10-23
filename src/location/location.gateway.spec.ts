@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { WebSocket } from 'ws';
 import { GroupEventService } from '../group/group-event.service';
 import { LocationGateway } from './location.gateway';
@@ -56,6 +57,40 @@ describe('LocationGateway', () => {
     expect(send).toHaveBeenCalledWith(
       expect.stringContaining('groupSubscribed'),
     );
+  });
+
+  it('logs authentication infrastructure failures without logging the session token', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    const authenticationService = {
+      authenticate: jest
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error('session token leaked'), { code: 'P1001' }),
+        ),
+    } as unknown as SessionAuthenticationService;
+    const gateway = new LocationGateway(
+      authenticationService,
+      {} as LocationService,
+      new GroupEventService(),
+    );
+    const { client, send, close } = makeClient();
+
+    await gateway.authenticate(client, {
+      sessionToken: 'private-session-token',
+    });
+
+    expect(send).toHaveBeenCalledWith(
+      expect.stringContaining('authenticationFailed'),
+    );
+    expect(close).toHaveBeenCalledWith(1008, 'Unauthorized');
+    expect(logger).toHaveBeenCalledWith(
+      'operation=authenticate outcome=error errorType=Error errorCode=P1001',
+    );
+    const logged = JSON.stringify(logger.mock.calls);
+    expect(logged).not.toContain('private-session-token');
+    expect(logged).not.toContain('session token leaked');
   });
 
   it('broadcasts POI events only to the matching group and excludes the actor', async () => {
@@ -140,6 +175,116 @@ describe('LocationGateway', () => {
 
     expect(actor.send.mock.calls).toHaveLength(0);
     expect(recipient.send).toHaveBeenCalledTimes(1);
+    gateway.onModuleDestroy();
+  });
+
+  it('broadcasts group deletion to the actor and members then drops subscriptions', async () => {
+    const authenticationService = {
+      authenticate: jest
+        .fn()
+        .mockResolvedValueOnce({ sessionId: 1, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 2, user: { id: 8 } }),
+    } as unknown as SessionAuthenticationService;
+    const locationService = {
+      verifyGroupMembership: jest.fn().mockResolvedValue(undefined),
+    } as unknown as LocationService;
+    const events = new GroupEventService();
+    const gateway = new LocationGateway(
+      authenticationService,
+      locationService,
+      events,
+    );
+    const actor = makeClient();
+    const recipient = makeClient();
+    gateway.onModuleInit();
+
+    await gateway.authenticate(actor.client, { sessionToken: 'actor' });
+    await gateway.authenticate(recipient.client, { sessionToken: 'recipient' });
+    await gateway.subscribeGroup(actor.client, { groupId: 5 });
+    await gateway.subscribeGroup(recipient.client, { groupId: 5 });
+    actor.send.mockClear();
+    recipient.send.mockClear();
+
+    events.publish({
+      event: 'groupDeleted',
+      data: { groupId: 5, actorUserId: 7 },
+    });
+
+    const serializedEvent = JSON.stringify({
+      event: 'groupDeleted',
+      data: { groupId: 5, actorUserId: 7 },
+    });
+    expect(actor.send).toHaveBeenCalledWith(serializedEvent);
+    expect(recipient.send).toHaveBeenCalledWith(serializedEvent);
+
+    actor.send.mockClear();
+    recipient.send.mockClear();
+    events.publish({
+      event: 'pointOfInterestUpdated',
+      data: { groupId: 5, pointOfInterestId: 12, actorUserId: 9 },
+    });
+
+    expect(actor.send).not.toHaveBeenCalled();
+    expect(recipient.send).not.toHaveBeenCalled();
+    gateway.onModuleDestroy();
+  });
+
+  it('revokes group subscriptions for every socket of a departing member', async () => {
+    const authenticationService = {
+      authenticate: jest
+        .fn()
+        .mockResolvedValueOnce({ sessionId: 1, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 2, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 3, user: { id: 8 } }),
+    } as unknown as SessionAuthenticationService;
+    const locationService = {
+      verifyGroupMembership: jest.fn().mockResolvedValue(undefined),
+    } as unknown as LocationService;
+    const events = new GroupEventService();
+    const gateway = new LocationGateway(
+      authenticationService,
+      locationService,
+      events,
+    );
+    const first = makeClient();
+    const second = makeClient();
+    const recipient = makeClient();
+    gateway.onModuleInit();
+    await gateway.authenticate(first.client, { sessionToken: 'first' });
+    await gateway.authenticate(second.client, { sessionToken: 'second' });
+    await gateway.authenticate(recipient.client, { sessionToken: 'recipient' });
+    await gateway.subscribeGroup(first.client, { groupId: 5 });
+    await gateway.subscribeGroup(second.client, { groupId: 5 });
+    await gateway.subscribeGroup(recipient.client, { groupId: 5 });
+    first.send.mockClear();
+    second.send.mockClear();
+    recipient.send.mockClear();
+
+    events.publish({
+      event: 'memberLeft',
+      data: { groupId: 5, memberId: 3, userId: 7, actorUserId: 7 },
+    });
+    events.publish({
+      event: 'pointOfInterestUpdated',
+      data: { groupId: 5, pointOfInterestId: 12, actorUserId: 9 },
+    });
+
+    expect(first.send).not.toHaveBeenCalled();
+    expect(second.send).not.toHaveBeenCalled();
+    expect(recipient.send).toHaveBeenNthCalledWith(
+      1,
+      JSON.stringify({
+        event: 'memberLeft',
+        data: { groupId: 5, memberId: 3, userId: 7, actorUserId: 7 },
+      }),
+    );
+    expect(recipient.send).toHaveBeenNthCalledWith(
+      2,
+      JSON.stringify({
+        event: 'pointOfInterestUpdated',
+        data: { groupId: 5, pointOfInterestId: 12, actorUserId: 9 },
+      }),
+    );
     gateway.onModuleDestroy();
   });
 
