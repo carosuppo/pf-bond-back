@@ -65,6 +65,7 @@ model User {
   groupInboxNotifications GroupInboxNotification[]
 
   emailVerifiedAt         DateTime?
+  lastActivityAt          DateTime?
   emailVerificationTokens EmailVerificationToken[]
 
   createdAt DateTime @default(now())
