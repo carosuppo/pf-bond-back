@@ -108,6 +108,8 @@ model UserSession {
 }
 
 model Group {
+  documentFolders DocumentFolder[]
+  documents FamilyDocument[]
   id                       Int     @id @default(autoincrement())
   name                     String
   image                    String
@@ -124,6 +126,50 @@ model Group {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+}
+
+model DocumentFolder {
+  id String @id @default(uuid())
+  groupId Int
+  name String @db.VarChar(200)
+  parentId String?
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  parent DocumentFolder? @relation("FolderTree", fields: [parentId, groupId], references: [id, groupId], onDelete: Cascade)
+  children DocumentFolder[] @relation("FolderTree")
+  documents FamilyDocument[]
+  @@unique([id, groupId])
+  @@index([groupId, parentId])
+}
+
+model FamilyDocument {
+  id String @id @default(uuid())
+  groupId Int
+  memberId Int?
+  memberName String?
+  folderId String?
+  name String @db.VarChar(200)
+  objectPath String @unique
+  mimeType String
+  size Int
+  creatorId Int
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  folder DocumentFolder? @relation(fields: [folderId, groupId], references: [id, groupId], onDelete: Cascade)
+  object DocumentObject @relation(fields: [objectPath], references: [path])
+  @@index([groupId, folderId])
+  @@index([groupId, memberId])
+}
+
+// Durable upload journal. Retired versions remain private for disaster recovery.
+model DocumentObject {
+  path String @id
+  state String @default("pending")
+  createdAt DateTime @default(now())
+  retiredAt DateTime?
+  document FamilyDocument?
+  @@index([state, createdAt])
 }
 
 model Member {
