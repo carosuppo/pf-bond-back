@@ -534,16 +534,28 @@ describe('DELETE /user/me (PostgreSQL)', () => {
       expect(sendVerification).toHaveBeenCalledTimes(1);
       await request(app.getHttpServer())
         .post('/user/resend-verification-email')
-        .send({ email })
+        .send({ email: email.toUpperCase() })
         .expect(200);
       expect(sendVerification).toHaveBeenCalledTimes(2);
       const verificationUrl = sendVerification.mock.calls[1][2];
       const token = new URL(verificationUrl).searchParams.get('token');
       expect(token).toBeTruthy();
-      await request(app.getHttpServer())
+      const verificationRedirect = await request(app.getHttpServer())
         .get('/user/verify-email')
         .query({ token })
+        .expect(302);
+      expect(verificationRedirect.headers.location).toBe(
+        `bond://verify-email?token=${encodeURIComponent(token!)}`,
+      );
+      const verificationSession = await request(app.getHttpServer())
+        .post('/user/verify-email-session')
+        .send({ token })
         .expect(200);
+      expect(verificationSession.body).toHaveProperty('sessionToken');
+      await request(app.getHttpServer())
+        .post('/user/verify-email-session')
+        .send({ token })
+        .expect(400);
       expect(
         (await prisma.user.findUniqueOrThrow({ where: { email } }))
           .emailVerifiedAt,
@@ -573,7 +585,7 @@ describe('DELETE /user/me (PostgreSQL)', () => {
     await request(app.getHttpServer())
       .get('/user/verify-email')
       .query({ token: verificationToken })
-      .expect(200);
+      .expect(302);
     const login = await request(app.getHttpServer())
       .post('/user/login')
       .send({ email, password })

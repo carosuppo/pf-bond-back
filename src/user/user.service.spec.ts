@@ -11,11 +11,152 @@ import { MailService } from '../mail/mail.service';
 import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ProfilePhotoFile } from './interface/profile-photo-file.interface';
-import type { IEmailVerificationTokenRepository } from './repository/email-verification-token.repository.interface';
+import type {
+  EmailVerificationTokenWithUser,
+  IEmailVerificationTokenRepository,
+} from './repository/email-verification-token.repository.interface';
 import type { IUserSessionRepository } from './repository/user-session.repository.interface';
 import type { IUserRepository } from './repository/user.repository.interface';
 import { SupabaseStorageService } from './storage/supabase-storage.service';
 import { UserService } from './user.service';
+
+describe('UserService email verification', () => {
+  const verifiedUser: User = {
+    id: 4,
+    name: 'Persona',
+    email: 'persona@bond.test',
+    passwordHash: 'hash',
+    profilePhoto: null,
+    profilePhotoPath: null,
+    notificationsEnabled: true,
+    locationId: null,
+    emailVerifiedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
+  const verificationToken: EmailVerificationTokenWithUser = {
+    id: 8,
+    userId: verifiedUser.id,
+    tokenHash: 'hash',
+    expiresAt: new Date(Date.now() + 60_000),
+    usedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    user: verifiedUser,
+  };
+
+  const createService = (
+    userRepository: Partial<IUserRepository>,
+    userSessionRepository: Partial<IUserSessionRepository>,
+    emailVerificationTokenRepository: Partial<IEmailVerificationTokenRepository>,
+  ): UserService =>
+    new UserService(
+      userRepository as unknown as IUserRepository,
+      userSessionRepository as unknown as IUserSessionRepository,
+      emailVerificationTokenRepository as unknown as IEmailVerificationTokenRepository,
+      {} as unknown as MailService,
+      {} as unknown as ConfigService,
+      {} as unknown as SupabaseStorageService,
+    );
+
+  it('verifies the email without consuming the token before the app exchanges it', async () => {
+    const emailVerificationTokenRepository: Partial<IEmailVerificationTokenRepository> =
+      {
+        findByTokenHash: jest.fn().mockResolvedValue(verificationToken),
+        markAsUsed: jest.fn(),
+      };
+    const userRepository: Partial<IUserRepository> = {
+      markEmailAsVerified: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = createService(
+      userRepository,
+      {},
+      emailVerificationTokenRepository,
+    );
+
+    await expect(
+      service.verifyEmail({ token: 'verification-token' }),
+    ).resolves.toEqual({
+      message: 'Correo electrónico verificado correctamente.',
+    });
+
+    expect(userRepository.markEmailAsVerified).toHaveBeenCalledWith(
+      verifiedUser.id,
+    );
+    expect(emailVerificationTokenRepository.markAsUsed).not.toHaveBeenCalled();
+  });
+
+  it('consumes the verification token once and creates a session for the app', async () => {
+    const emailVerificationTokenRepository: Partial<IEmailVerificationTokenRepository> =
+      {
+        findByTokenHash: jest.fn().mockResolvedValue(verificationToken),
+        markAsUsed: jest.fn().mockResolvedValue(true),
+      };
+    const userRepository: Partial<IUserRepository> = {
+      markEmailAsVerified: jest.fn().mockResolvedValue(undefined),
+    };
+    const createdSessions: Array<{
+      userId: number;
+      tokenHash: string;
+      expiresAt: Date;
+    }> = [];
+    const userSessionRepository: Partial<IUserSessionRepository> = {
+      create: (session) => {
+        createdSessions.push(session);
+        return Promise.resolve({
+          id: 1,
+          ...session,
+          revokedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      },
+    };
+    const service = createService(
+      userRepository,
+      userSessionRepository,
+      emailVerificationTokenRepository,
+    );
+
+    const result = await service.completeEmailVerification({
+      token: 'verification-token',
+    });
+
+    expect(emailVerificationTokenRepository.markAsUsed).toHaveBeenCalledWith(
+      verificationToken.id,
+    );
+    expect(createdSessions).toHaveLength(1);
+    expect(createdSessions[0].userId).toBe(verifiedUser.id);
+    expect(createdSessions[0].tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createdSessions[0].expiresAt).toBeInstanceOf(Date);
+    expect(result.sessionToken).toEqual(expect.any(String));
+    expect(result.user.email).toBe(verifiedUser.email);
+  });
+
+  it('rejects exchanging a verification token that was already consumed', async () => {
+    const emailVerificationTokenRepository: Partial<IEmailVerificationTokenRepository> =
+      {
+        findByTokenHash: jest.fn().mockResolvedValue(verificationToken),
+        markAsUsed: jest.fn().mockResolvedValue(false),
+      };
+    const userRepository: Partial<IUserRepository> = {
+      markEmailAsVerified: jest.fn().mockResolvedValue(undefined),
+    };
+    const userSessionRepository: Partial<IUserSessionRepository> = {
+      create: jest.fn(),
+    };
+    const service = createService(
+      userRepository,
+      userSessionRepository,
+      emailVerificationTokenRepository,
+    );
+
+    await expect(
+      service.completeEmailVerification({ token: 'verification-token' }),
+    ).rejects.toThrow(BadRequestException);
+    expect(userSessionRepository.create).not.toHaveBeenCalled();
+  });
+});
 
 describe('UserService.update', () => {
   const buildUser = (overrides: Partial<User> = {}): User => ({

@@ -1,3 +1,5 @@
+import type { Response } from 'express';
+import { AccountDeletionService } from './service/account-deletion.service';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -19,5 +21,36 @@ describe('UserController', () => {
 
     expect(service.updateProfilePhoto).toHaveBeenCalledWith(7, file);
     expect(result.profilePhoto).toBe('data:image/jpeg;base64,abc');
+  });
+
+  it('redirige a Bond después de verificar el correo', async () => {
+    const service = {
+      verifyEmail: jest.fn().mockResolvedValue(undefined),
+    };
+    const controller = new UserController(
+      service as unknown as UserService,
+      {} as AccountDeletionService,
+    );
+    const response = {
+      setHeader: jest.fn(),
+      redirect: jest.fn(),
+    };
+
+    await controller.verifyEmail(
+      { token: 'verification-token' },
+      response as unknown as Response,
+    );
+
+    expect(service.verifyEmail).toHaveBeenCalledWith({
+      token: 'verification-token',
+    });
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      'no-store',
+    );
+    expect(response.redirect).toHaveBeenCalledWith(
+      302,
+      'bond://verify-email?token=verification-token',
+    );
   });
 });

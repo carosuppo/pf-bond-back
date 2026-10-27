@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -10,11 +11,13 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -29,6 +32,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { SessionAuthGuard } from './guard/session-auth.guard';
 import type { AuthenticatedRequest } from './interface/authenticated-request.interface';
 import type { ProfilePhotoFile } from './interface/profile-photo-file.interface';
+import { NormalizeEmailPipe } from './pipe/normalize-email.pipe';
 import { NormalizeLoginUserPipe } from './pipe/normalize-login-user.pipe';
 import { NormalizeUpdateUserPipe } from './pipe/normalize-update-user.pipe';
 import { NormalizeUserPipe } from './pipe/normalize-user.pipe';
@@ -45,7 +49,8 @@ export class UserController {
   @Post('resend-verification-email')
   @HttpCode(HttpStatus.OK)
   async resendVerificationEmail(
-    @Body() resendVerificationEmailDto: ResendVerificationEmailDto,
+    @Body(NormalizeEmailPipe)
+    resendVerificationEmailDto: ResendVerificationEmailDto,
   ): Promise<MessageResponseDto> {
     return this.userService.resendVerificationEmail(resendVerificationEmailDto);
   }
@@ -86,8 +91,22 @@ export class UserController {
   @Get('verify-email')
   async verifyEmail(
     @Query() verifyEmailDto: VerifyEmailDto,
-  ): Promise<MessageResponseDto> {
-    return this.userService.verifyEmail(verifyEmailDto);
+    @Res() response: Response,
+  ): Promise<void> {
+    await this.userService.verifyEmail(verifyEmailDto);
+    const appLink = new URL('bond://verify-email');
+    appLink.searchParams.set('token', verifyEmailDto.token);
+    response.setHeader('Cache-Control', 'no-store');
+    response.redirect(302, appLink.toString());
+  }
+
+  @Post('verify-email-session')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  async completeEmailVerification(
+    @Body() verifyEmailDto: VerifyEmailDto,
+  ): Promise<UserAuthResponseDto> {
+    return this.userService.completeEmailVerification(verifyEmailDto);
   }
 
   @Get('me')

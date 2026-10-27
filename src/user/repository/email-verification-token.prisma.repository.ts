@@ -36,15 +36,18 @@ export class EmailVerificationTokenPrismaRepository implements IEmailVerificatio
     });
   }
 
-  async markAsUsed(tokenId: number): Promise<void> {
-    await this.prismaService.emailVerificationToken.update({
+  async markAsUsed(tokenId: number): Promise<boolean> {
+    const result = await this.prismaService.emailVerificationToken.updateMany({
       where: {
         id: tokenId,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
       },
       data: {
         usedAt: new Date(),
       },
     });
+    return result.count === 1;
   }
 
   async invalidateActiveByUserId(userId: number): Promise<void> {

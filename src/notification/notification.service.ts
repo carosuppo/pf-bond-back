@@ -43,7 +43,9 @@ export class NotificationService {
       Number.isInteger(groupId) &&
       groupId > 0 &&
       type &&
-      type !== 'GROUP_JOIN_REQUEST'
+      type !== 'GROUP_JOIN_REQUEST' &&
+      type !== 'POINT_OF_INTEREST_ENTERED' &&
+      type !== 'POINT_OF_INTEREST_EXITED'
     ) {
       await this.groupInboxRepository.createMany({
         recipientUserIds: uniqueUserIds,

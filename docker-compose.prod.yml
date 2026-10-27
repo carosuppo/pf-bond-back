@@ -84,6 +84,8 @@ services:
       start_period: 30s
     env_file:
       - .env
+    environment:
+      API_BASE_URL: https://srv2008002.hstgr.cloud
     expose:
       - '3000'
     depends_on:

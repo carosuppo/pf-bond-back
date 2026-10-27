@@ -133,6 +133,28 @@ describe('NotificationService', () => {
     expect(groupInboxRepository.createMany).not.toHaveBeenCalled();
   });
 
+  it.each(['POINT_OF_INTEREST_ENTERED', 'POINT_OF_INTEREST_EXITED'])(
+    'sends %s notifications without persisting them in the inbox',
+    async (type) => {
+      repository.findByUserIds.mockResolvedValue([
+        { userId: 8, token: 'member-device' },
+      ]);
+      const message = {
+        title: 'Aviso de ubicación',
+        body: 'Un miembro ingresó o egresó de un punto de interés.',
+        data: { type, groupId: '3' },
+      };
+
+      await service.sendToUsers([8], message);
+
+      expect(groupInboxRepository.createMany).not.toHaveBeenCalled();
+      expect(firebasePushService.sendToTokens).toHaveBeenCalledWith(
+        ['member-device'],
+        message,
+      );
+    },
+  );
+
   it('elimina solamente tokens que Firebase identifica como inválidos', async () => {
     repository.findByUserIds.mockResolvedValue([
       { userId: 8, token: 'dead-token' },

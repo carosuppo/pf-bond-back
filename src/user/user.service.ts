@@ -29,7 +29,10 @@ import {
 } from './mapper/user-session.mapper';
 import { UserMapper } from './mapper/user.mapper';
 import { SupabaseStorageService } from './storage/supabase-storage.service';
-import type { IEmailVerificationTokenRepository } from './repository/email-verification-token.repository.interface';
+import type {
+  EmailVerificationTokenWithUser,
+  IEmailVerificationTokenRepository,
+} from './repository/email-verification-token.repository.interface';
 import type { IUserSessionRepository } from './repository/user-session.repository.interface';
 import type { IUserRepository } from './repository/user.repository.interface';
 
@@ -93,32 +96,41 @@ export class UserService {
   async verifyEmail(
     verifyEmailDto: VerifyEmailDto,
   ): Promise<MessageResponseDto> {
-    const tokenHash = this.hashToken(verifyEmailDto.token);
-
-    const verificationToken =
-      await this.emailVerificationTokenRepository.findByTokenHash(tokenHash);
-
-    if (
-      !verificationToken ||
-      verificationToken.usedAt ||
-      verificationToken.expiresAt < new Date()
-    ) {
-      throw new BadRequestException(
-        'El token de verificación es inválido o expiró.',
-      );
-    }
+    const verificationToken = await this.findValidEmailVerificationToken(
+      verifyEmailDto.token,
+    );
 
     if (!verificationToken.user.emailVerifiedAt) {
       await this.userRepository.markEmailAsVerified(verificationToken.userId);
     }
 
-    await this.emailVerificationTokenRepository.markAsUsed(
-      verificationToken.id,
-    );
-
     return {
       message: 'Correo electrónico verificado correctamente.',
     };
+  }
+
+  async completeEmailVerification(
+    verifyEmailDto: VerifyEmailDto,
+  ): Promise<UserAuthResponseDto> {
+    const verificationToken = await this.findValidEmailVerificationToken(
+      verifyEmailDto.token,
+    );
+
+    if (!verificationToken.user.emailVerifiedAt) {
+      await this.userRepository.markEmailAsVerified(verificationToken.userId);
+    }
+
+    const consumed = await this.emailVerificationTokenRepository.markAsUsed(
+      verificationToken.id,
+    );
+    if (!consumed) {
+      throw new BadRequestException(
+        'El token de verificación es inválido o expiró.',
+      );
+    }
+
+    const session = await this.createSession(verificationToken.userId);
+    return UserMapper.toAuthResponseDto(verificationToken.user, session);
   }
 
   async resendVerificationEmail(
@@ -383,6 +395,26 @@ export class UserService {
       user.name,
       verificationUrl,
     );
+  }
+
+  private async findValidEmailVerificationToken(
+    token: string,
+  ): Promise<EmailVerificationTokenWithUser> {
+    const tokenHash = this.hashToken(token);
+    const verificationToken =
+      await this.emailVerificationTokenRepository.findByTokenHash(tokenHash);
+
+    if (
+      !verificationToken ||
+      verificationToken.usedAt ||
+      verificationToken.expiresAt < new Date()
+    ) {
+      throw new BadRequestException(
+        'El token de verificación es inválido o expiró.',
+      );
+    }
+
+    return verificationToken;
   }
 
   private hashToken(token: string): string {
