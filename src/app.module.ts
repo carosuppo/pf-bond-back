@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ActivityController } from './metrics/activity.controller';
+import { ActivityService } from './metrics/activity.service';
+import { ActivityPrismaRepository } from './metrics/activity.prisma.repository';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -38,7 +41,11 @@ import { UserModule } from './user/user.module';
     ExpenseAccountModule,
     RoutingModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, ActivityController],
+  providers: [
+    AppService,
+    { provide: 'activityRepository', useClass: ActivityPrismaRepository },
+    ActivityService,
+  ],
 })
 export class AppModule {}

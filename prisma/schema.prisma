@@ -57,6 +57,7 @@ model User {
   devicePushTokens DevicePushToken[]
 
   emailVerifiedAt         DateTime?
+  lastActivityAt          DateTime?
   emailVerificationTokens EmailVerificationToken[]
 
   createdAt DateTime  @default(now())
