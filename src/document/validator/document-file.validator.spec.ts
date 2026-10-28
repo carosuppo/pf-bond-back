@@ -1,4 +1,5 @@
-import { validateDocumentFile, MAX_DOCUMENT_BYTES } from './document-file';
+import { validateDocumentFile } from './document-file.validator';
+import { MAX_DOCUMENT_BYTES } from '../constants/document.constants';
 
 describe('Document signatures and size', () => {
   const png = Buffer.from(

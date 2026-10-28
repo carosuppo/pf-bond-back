@@ -21,13 +21,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
-import {
-  DocumentInputDto,
-  DocumentQueryDto,
-  FolderInputDto,
-} from './document.dto';
-import { MAX_DOCUMENT_BYTES } from './document-file';
-import type { DocumentFile } from './document-file';
+import { DocumentInputDto } from './dto/document-input.dto';
+import { DocumentQueryDto } from './dto/document-query.dto';
+import { FolderInputDto } from './dto/folder-input.dto';
+import { MAX_DOCUMENT_BYTES } from './constants/document.constants';
+import type { DocumentFile } from './interface/document-file.interface';
 import { DocumentService } from './document.service';
 
 const upload = FileInterceptor('file', {

@@ -1,11 +1,7 @@
 import { DocumentFolder, FamilyDocument } from '@prisma/client';
-import { DocumentInputDto, DocumentListingDto } from './document.dto';
-
-export interface DocumentPublication {
-  path: string;
-  mimeType: string;
-  size: number;
-}
+import { SaveDocumentData } from '../interface/save-document.interface';
+import { DocumentPublication } from '../interface/document-publication.interface';
+import { DocumentListingEntity } from '../entity/document-listing.entity';
 
 export interface IDocumentRepository {
   authorize(groupId: number, userId: number): Promise<void>;
@@ -14,13 +10,13 @@ export interface IDocumentRepository {
     userId: number,
     folderId?: string,
     memberId?: number,
-  ): Promise<DocumentListingDto>;
+  ): Promise<DocumentListingEntity>;
   find(groupId: number, userId: number, id: string): Promise<FamilyDocument>;
   reserve(groupId: number, userId: number, path: string): Promise<void>;
   save(
     groupId: number,
     userId: number,
-    input: DocumentInputDto,
+    input: SaveDocumentData,
     publication?: DocumentPublication,
     previous?: FamilyDocument,
   ): Promise<FamilyDocument>;

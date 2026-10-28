@@ -8,18 +8,20 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { DocumentInputDto } from './dto/document-input.dto';
+import { DocumentQueryDto } from './dto/document-query.dto';
+import { FolderInputDto } from './dto/folder-input.dto';
+import { DocumentFile } from './interface/document-file.interface';
+import { validateDocumentFile } from './validator/document-file.validator';
 import {
-  DocumentInputDto,
-  DocumentQueryDto,
-  FolderInputDto,
-} from './document.dto';
-import { DocumentFile, validateDocumentFile } from './document-file';
-import { documentResponse, folderResponse } from './document.mapper';
-import type {
-  IDocumentRepository,
-  DocumentPublication,
-} from './document.repository.interface';
-import { DocumentStorageService } from './document-storage.service';
+  documentResponse,
+  folderResponse,
+  documentListingResponse,
+  documentStatusResponse,
+} from './mapper/document.mapper';
+import type { IDocumentRepository } from './repository/document.repository.interface';
+import type { DocumentPublication } from './interface/document-publication.interface';
+import { DocumentStorageService } from './storage/document-storage.service';
 
 @Injectable()
 export class DocumentService implements OnModuleInit, OnModuleDestroy {
@@ -32,12 +34,14 @@ export class DocumentService implements OnModuleInit, OnModuleDestroy {
     private readonly storage: DocumentStorageService,
   ) {}
 
-  list(groupId: number, userId: number, query: DocumentQueryDto) {
-    return this.repository.list(
-      groupId,
-      userId,
-      query.folderId,
-      query.memberId,
+  async list(groupId: number, userId: number, query: DocumentQueryDto) {
+    return documentListingResponse(
+      await this.repository.list(
+        groupId,
+        userId,
+        query.folderId,
+        query.memberId,
+      ),
     );
   }
 
@@ -72,7 +76,7 @@ export class DocumentService implements OnModuleInit, OnModuleDestroy {
 
   async status(groupId: number, userId: number, id: string) {
     const document = await this.repository.find(groupId, userId, id);
-    return { version: document.version, mimeType: document.mimeType };
+    return documentStatusResponse(document);
   }
 
   async download(

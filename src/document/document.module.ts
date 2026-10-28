@@ -3,8 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserModule } from '../user/user.module';
 import { DocumentController } from './document.controller';
 import { DocumentService } from './document.service';
-import { DocumentStorageService } from './document-storage.service';
-import { DocumentPrismaRepository } from './document.prisma.repository';
+import { DocumentStorageService } from './storage/document-storage.service';
+import { DocumentPrismaRepository } from './repository/document.prisma.repository';
 
 @Module({
   imports: [UserModule],

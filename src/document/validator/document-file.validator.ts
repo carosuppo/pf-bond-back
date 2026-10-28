@@ -1,10 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-
-export const MAX_DOCUMENT_BYTES = 10_485_760;
-export interface DocumentFile {
-  buffer: Buffer;
-  mimetype: string;
-}
+import { MAX_DOCUMENT_BYTES } from '../constants/document.constants';
+import { DocumentFile } from '../interface/document-file.interface';
 
 export function validateDocumentFile(
   file?: DocumentFile,

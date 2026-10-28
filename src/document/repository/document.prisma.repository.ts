@@ -6,13 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { FamilyDocument, Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { DocumentInputDto } from './document.dto';
-import { documentResponse, folderResponse } from './document.mapper';
-import {
-  DocumentPublication,
-  IDocumentRepository,
-} from './document.repository.interface';
+import { PrismaService } from '../../prisma/prisma.service';
+import { SaveDocumentData } from '../interface/save-document.interface';
+import { DocumentPublication } from '../interface/document-publication.interface';
+import { IDocumentRepository } from './document.repository.interface';
 
 @Injectable()
 export class DocumentPrismaRepository implements IDocumentRepository {
@@ -76,8 +73,8 @@ export class DocumentPrismaRepository implements IDocumentRepository {
         select: { memberId: true, memberName: true },
       });
       return {
-        documents: documents.map(documentResponse),
-        folders: folders.map(folderResponse),
+        documents,
+        folders,
         members: [
           ...members.map((m) => ({
             id: m.id,
@@ -133,7 +130,7 @@ export class DocumentPrismaRepository implements IDocumentRepository {
   async save(
     groupId: number,
     userId: number,
-    input: DocumentInputDto,
+    input: SaveDocumentData,
     publication?: DocumentPublication,
     previous?: FamilyDocument,
   ) {
