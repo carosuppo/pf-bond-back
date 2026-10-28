@@ -1,7 +1,9 @@
 import { CreateExpenseAccountDto } from '../dto/create-expense-account.dto';
 import { ExpenseAccountDetailResponseDto } from '../dto/expense-account-detail-response.dto';
 import { ExpenseAccountResponseDto } from '../dto/expense-account-response.dto';
+import { ExpenseResponseDto } from '../dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from '../dto/my-expense-account-response.dto';
+import { ExpenseEntity } from '../entity/expense.entity';
 import {
   calculateBalances,
   calculateDebtsOfMember,
@@ -76,11 +78,25 @@ export class ExpenseAccountMapper {
       eventId: account.eventId,
       eventName: account.eventName,
       members: balances,
+      myMemberId,
       myBalanceCents: myBalance,
       myStatus: toBalanceStatus(myBalance),
       debtsToMe: calculateDebtsToMember(account.movements, myMemberId),
       myDebts: calculateDebtsOfMember(account.movements, myMemberId),
       movements: account.movements,
+    };
+  }
+
+  static toExpenseResponse(expense: ExpenseEntity): ExpenseResponseDto {
+    return {
+      id: expense.id,
+      expenseAccountId: expense.expenseAccountId,
+      title: expense.title,
+      amountCents: expense.amountCents,
+      splitType: expense.splitType,
+      payerMemberId: expense.payerMemberId,
+      shares: expense.shares,
+      createdAt: expense.createdAt,
     };
   }
 }

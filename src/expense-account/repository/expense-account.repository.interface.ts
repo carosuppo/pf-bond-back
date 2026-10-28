@@ -3,7 +3,10 @@ import {
   ExpenseAccountDetailEntity,
   MyExpenseAccountData,
 } from '../entity/expense-account-detail.entity';
+import { ExpenseEntity } from '../entity/expense.entity';
 import { CreateExpenseAccountData } from '../interface/create-expense-account.interface';
+import { CreateExpenseData } from '../interface/create-expense.interface';
+import type { AccountMovementData } from '../interface/account-movement.interface';
 
 export interface ExpenseEventForValidation {
   id: number;
@@ -23,4 +26,9 @@ export interface IExpenseAccountRepository {
   findAccountById(
     accountId: number,
   ): Promise<ExpenseAccountDetailEntity | null>;
+  createExpense(
+    data: CreateExpenseData,
+    accountId: number,
+  ): Promise<ExpenseEntity>;
+  findMovementsByAccountId(accountId: number): Promise<AccountMovementData[]>;
 }

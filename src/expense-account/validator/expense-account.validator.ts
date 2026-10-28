@@ -111,4 +111,55 @@ export class ExpenseAccountValidator {
 
     return { account, member };
   }
+
+  validateExpenseParticipants(
+    accountMemberIds: number[],
+    payerMemberId: number,
+    participantIds: number[],
+  ): void {
+    if (!accountMemberIds.includes(payerMemberId)) {
+      throw new BadRequestException('El pagador no pertenece a la cuenta.');
+    }
+
+    const invalidMemberIds = [...new Set(participantIds)].filter(
+      (memberId) => !accountMemberIds.includes(memberId),
+    );
+
+    if (invalidMemberIds.length > 0) {
+      throw new BadRequestException(
+        `Los siguientes miembros no pertenecen a la cuenta: ${invalidMemberIds.join(', ')}`,
+      );
+    }
+  }
+
+  validateCustomSharesTotal(
+    totalCents: number,
+    shares: { memberId: number; amountCents: number }[],
+  ): void {
+    const memberIds = shares.map((share) => share.memberId);
+    const duplicatedIds = memberIds.filter(
+      (memberId, index) => memberIds.indexOf(memberId) !== index,
+    );
+
+    if (duplicatedIds.length > 0) {
+      throw new BadRequestException(
+        `El reparto tiene miembros duplicados: ${[...new Set(duplicatedIds)].join(', ')}`,
+      );
+    }
+
+    const assignedCents = shares.reduce(
+      (sum, share) => sum + share.amountCents,
+      0,
+    );
+
+    if (assignedCents !== totalCents) {
+      throw new BadRequestException({
+        message:
+          'La suma de los importes asignados no coincide con el total del gasto.',
+        totalCents,
+        assignedCents,
+        differenceCents: totalCents - assignedCents,
+      });
+    }
+  }
 }

@@ -5,7 +5,10 @@ import {
   MyExpenseAccountData,
 } from '../entity/expense-account-detail.entity';
 import { ExpenseAccountEntity } from '../entity/expense-account.entity';
+import { ExpenseEntity } from '../entity/expense.entity';
+import type { AccountMovementData } from '../interface/account-movement.interface';
 import { CreateExpenseAccountData } from '../interface/create-expense-account.interface';
+import { CreateExpenseData } from '../interface/create-expense.interface';
 import {
   ExpenseEventForValidation,
   IExpenseAccountRepository,
@@ -100,6 +103,10 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
       orderBy: { name: 'asc' },
     });
 
+    const movementsByAccount = await this.findMovementsByAccountIds(
+      accounts.map((account) => account.id),
+    );
+
     return accounts.map((account) => {
       const myMember = account.members.find(
         (member) => member.member.userId === userId,
@@ -118,7 +125,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
         eventName: account.event?.name ?? null,
         memberIds: account.members.map((member) => member.memberId),
         myMemberId: myMember.memberId,
-        movements: [],
+        movements: movementsByAccount.get(account.id) ?? [],
       };
     });
   }
@@ -139,6 +146,8 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
       return null;
     }
 
+    const movements = await this.findMovementsByAccountId(accountId);
+
     return {
       id: account.id,
       name: account.name,
@@ -147,7 +156,92 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
       eventId: account.eventId,
       eventName: account.event?.name ?? null,
       memberIds: account.members.map((member) => member.memberId),
-      movements: [],
+      movements,
     };
+  }
+
+  async createExpense(
+    data: CreateExpenseData,
+    accountId: number,
+  ): Promise<ExpenseEntity> {
+    const expense = await this.prismaService.expense.create({
+      data: {
+        expenseAccountId: accountId,
+        payerMemberId: data.payerMemberId,
+        title: data.title ?? null,
+        amountCents: data.amountCents,
+        splitType: data.splitType,
+        shares: {
+          create: data.shares.map((share) => ({
+            memberId: share.memberId,
+            amountCents: share.amountCents,
+          })),
+        },
+      },
+      include: {
+        shares: true,
+      },
+    });
+
+    return {
+      id: expense.id,
+      expenseAccountId: expense.expenseAccountId,
+      title: expense.title,
+      amountCents: expense.amountCents,
+      splitType: expense.splitType,
+      payerMemberId: expense.payerMemberId,
+      shares: expense.shares.map((share) => ({
+        memberId: share.memberId,
+        amountCents: share.amountCents,
+      })),
+      createdAt: expense.createdAt,
+    };
+  }
+
+  async findMovementsByAccountId(
+    accountId: number,
+  ): Promise<AccountMovementData[]> {
+    const movements = await this.findMovementsByAccountIds([accountId]);
+
+    return movements.get(accountId) ?? [];
+  }
+
+  private async findMovementsByAccountIds(
+    accountIds: number[],
+  ): Promise<Map<number, AccountMovementData[]>> {
+    if (accountIds.length === 0) {
+      return new Map();
+    }
+
+    const expenses = await this.prismaService.expense.findMany({
+      where: { expenseAccountId: { in: accountIds } },
+      include: {
+        shares: {
+          select: { memberId: true, amountCents: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const movementsByAccount = new Map<number, AccountMovementData[]>();
+
+    for (const expense of expenses) {
+      const movements = movementsByAccount.get(expense.expenseAccountId) ?? [];
+      movements.push({
+        kind: 'EXPENSE',
+        id: expense.id,
+        title: expense.title,
+        amountCents: expense.amountCents,
+        payerMemberId: expense.payerMemberId,
+        shares: expense.shares.map((share) => ({
+          memberId: share.memberId,
+          amountCents: share.amountCents,
+        })),
+        createdAt: expense.createdAt,
+      });
+      movementsByAccount.set(expense.expenseAccountId, movements);
+    }
+
+    return movementsByAccount;
   }
 }

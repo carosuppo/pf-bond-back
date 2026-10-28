@@ -20,6 +20,7 @@ export class ExpenseAccountDetailResponseDto {
   eventId!: number | null;
   eventName!: string | null;
   members!: AccountMemberBalanceDto[];
+  myMemberId!: number;
   myBalanceCents!: number;
   myStatus!: BalanceStatus;
   debtsToMe!: AccountDebtDto[];

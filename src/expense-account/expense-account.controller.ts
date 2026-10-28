@@ -10,8 +10,10 @@ import {
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import { CreateExpenseAccountDto } from './dto/create-expense-account.dto';
+import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ExpenseAccountDetailResponseDto } from './dto/expense-account-detail-response.dto';
 import { ExpenseAccountResponseDto } from './dto/expense-account-response.dto';
+import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
 import { ExpenseAccountService } from './expense-account.service';
 
@@ -41,5 +43,14 @@ export class ExpenseAccountController {
     @CurrentUser() userId: number,
   ): Promise<ExpenseAccountDetailResponseDto> {
     return this.expenseAccountService.getAccountDetail(id, userId);
+  }
+
+  @Post(':id/expense')
+  createExpense(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateExpenseDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpenseResponseDto> {
+    return this.expenseAccountService.createExpense(dto, id, userId);
   }
 }
