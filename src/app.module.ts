@@ -8,6 +8,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DocumentModule } from './document/document.module';
 import { EventModule } from './event/event.module';
 import { ExpenseAccountModule } from './expense-account/expense-account.module';
 import { GroupModule } from './group/group.module';
@@ -22,6 +23,7 @@ import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
+    DocumentModule,
     GroupModule,
     MemberModule,
     LocationModule,
