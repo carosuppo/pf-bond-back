@@ -175,6 +175,86 @@ suite('Documentation HTTP + isolated PostgreSQL (Storage fake)', () => {
     return response.body as { id: string };
   }
 
+  it('revalidates access/existence/version without reading Storage', async () => {
+    const doc = await upload();
+    const statusPath = `${base}/documents/${doc.id}/status`;
+    await http().get(statusPath).expect(401);
+    for (let i = 0; i < 3; i++) {
+      const result = await http()
+        .get(statusPath)
+        .set('Authorization', auth)
+        .expect(200);
+      expect(result.body).toEqual({ version: 1, mimeType: 'application/pdf' });
+      expect(result.headers['cache-control']).toContain('no-store');
+    }
+    await http()
+      .patch(`${base}/documents/${doc.id}`)
+      .set('Authorization', auth)
+      .field('name', 'Actualizado')
+      .expect(200);
+    const updated = await http()
+      .get(statusPath)
+      .set('Authorization', auth)
+      .expect(200);
+    expect(updated.body).toEqual({ version: 2, mimeType: 'application/pdf' });
+    await db.member.create({
+      data: { id: 4, userId: 1, groupId: 2, role: 'MEMBER' },
+    });
+    await http()
+      .get(`/group/2/documentation/documents/${doc.id}/status`)
+      .set('Authorization', auth)
+      .expect(404);
+    await db.member.delete({ where: { id: 1 } });
+    await http().get(statusPath).set('Authorization', auth).expect(403);
+    await db.member.create({
+      data: { id: 1, userId: 1, groupId: 1, role: 'MEMBER' },
+    });
+    await http()
+      .delete(`${base}/documents/${doc.id}`)
+      .set('Authorization', auth)
+      .expect(204);
+    await http().get(statusPath).set('Authorization', auth).expect(404);
+    await db.userSession.updateMany({ data: { revokedAt: new Date() } });
+    await http().get(statusPath).set('Authorization', auth).expect(401);
+    expect(storage.download).not.toHaveBeenCalled();
+  });
+
+  it('binds downloaded bytes to the checked version, including concurrent updates', async () => {
+    const doc = await upload();
+    const path = `${base}/documents/${doc.id}/content`;
+    await http()
+      .get(`${path}?version=1`)
+      .set('Authorization', auth)
+      .expect(200);
+    storage.download.mockClear();
+    await http()
+      .patch(`${base}/documents/${doc.id}`)
+      .set('Authorization', auth)
+      .field('name', 'Nueva versión')
+      .expect(200);
+    await http()
+      .get(`${path}?version=1`)
+      .set('Authorization', auth)
+      .expect(409);
+    expect(storage.download).not.toHaveBeenCalled();
+    storage.download.mockImplementationOnce(async () => {
+      await db.familyDocument.update({
+        where: { id: doc.id },
+        data: { version: { increment: 1 } },
+      });
+      return pdf;
+    });
+    await http()
+      .get(`${path}?version=2`)
+      .set('Authorization', auth)
+      .expect(409);
+    await http()
+      .get(`${path}?version=3`)
+      .set('Authorization', auth)
+      .expect(200);
+    await http().get(path).set('Authorization', auth).expect(200);
+  });
+
   it('lists root, nested folders, recursive member filter and serves private PDF', async () => {
     const parent = await folder('Salud');
     const child = await folder('Estudios', parent.id);

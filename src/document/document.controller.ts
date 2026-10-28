@@ -77,6 +77,17 @@ export class DocumentController {
     return this.service.save(groupId, userId, dto, file, id);
   }
 
+  @Get('documents/:id/status')
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Pragma', 'no-cache')
+  status(
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @CurrentUser() userId: number,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.status(groupId, userId, id);
+  }
+
   @Get('documents/:id/content')
   @Header('Cache-Control', 'private, no-store, max-age=0')
   @Header('Pragma', 'no-cache')
@@ -87,8 +98,9 @@ export class DocumentController {
     @CurrentUser() userId: number,
     @Param('id', ParseUUIDPipe) id: string,
     @Res({ passthrough: true }) response: Response,
+    @Query('version', new ParseIntPipe({ optional: true })) version?: number,
   ) {
-    const file = await this.service.download(groupId, userId, id);
+    const file = await this.service.download(groupId, userId, id, version);
     response.setHeader('Content-Type', file.mimeType);
     return new StreamableFile(file.buffer, {
       type: file.mimeType,

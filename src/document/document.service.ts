@@ -70,11 +70,26 @@ export class DocumentService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  async download(groupId: number, userId: number, id: string) {
+  async status(groupId: number, userId: number, id: string) {
     const document = await this.repository.find(groupId, userId, id);
+    return { version: document.version, mimeType: document.mimeType };
+  }
+
+  async download(
+    groupId: number,
+    userId: number,
+    id: string,
+    version?: number,
+  ) {
+    const document = await this.repository.find(groupId, userId, id);
+    if (version !== undefined && document.version !== version)
+      throw new ConflictException('El archivo cambió. Volvé a abrirlo.');
     const buffer = await this.storage.download(document.objectPath);
     const current = await this.repository.find(groupId, userId, id);
-    if (current.objectPath !== document.objectPath)
+    if (
+      current.objectPath !== document.objectPath ||
+      (version !== undefined && current.version !== version)
+    )
       throw new ConflictException('El archivo cambió. Volvé a abrirlo.');
     return { buffer, mimeType: document.mimeType };
   }
