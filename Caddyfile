@@ -1,4 +1,4 @@
-:80 {
+srv2008002.hstgr.cloud {
     redir /legal /legal/ 308
     handle_path /legal/* {
         reverse_proxy legal:80
