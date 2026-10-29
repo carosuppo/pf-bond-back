@@ -1,0 +1,41 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<SiteLayout
+  title="Privacidad y uso | Bond"
+  description="Política de privacidad, términos de uso y eliminación de cuenta de Bond."
+>
+  <section class="hero">
+    <p class="eyebrow">Bond · privacidad y control</p>
+      <h1>Privacidad, reglas de uso y control de tu cuenta.</h1>
+      <p class="hero-copy">
+        Consultá cómo se usa tu información, las reglas para compartir contenido
+        en grupos y cómo solicitar la eliminación de tu cuenta.
+    </p>
+  </section>
+
+  <section class="card-grid" aria-label="Recursos de privacidad">
+    <a class="card" href={`${base}privacy/`}>
+      <h2>Política de privacidad</h2>
+      <p>
+        Datos tratados, ubicación, servicios externos, seguridad, retención y
+        eliminación.
+      </p>
+      <span class="card-arrow">Leer la política →</span>
+    </a>
+    <a class="card" href={`${base}account-deletion/`}>
+      <h2>Eliminar cuenta</h2>
+      <p>
+        Encontrá cómo solicitar la eliminación desde Bond o desde esta página.
+      </p>
+      <span class="card-arrow">Solicitar eliminación →</span>
+    </a>
+    <a class="card" href={`${base}terms/`}>
+      <h2>Términos de uso</h2>
+      <p>Reglas para compartir contenido y usar Bond de forma segura.</p>
+      <span class="card-arrow">Leer los términos →</span>
+    </a>
+  </section>
+</SiteLayout>

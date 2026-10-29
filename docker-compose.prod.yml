@@ -86,12 +86,25 @@ services:
       - .env
     environment:
       API_BASE_URL: https://srv2008002.hstgr.cloud
+      LEGAL_BASE_URL: ${LEGAL_BASE_URL:-https://srv2008002.hstgr.cloud/legal/}
     expose:
       - '3000'
     depends_on:
       postgres:
         condition: service_healthy
     command: sh -c 'npx prisma migrate deploy && npm run start:prod'
+
+  legal:
+    build:
+      context: ./legal-web
+      args:
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://srv2008002.hstgr.cloud}
+        PUBLIC_DEVELOPER_NAME: ${PUBLIC_DEVELOPER_NAME:-DobleT}
+        PUBLIC_PRIVACY_EMAIL: ${PUBLIC_PRIVACY_EMAIL:-dobletpf@gmail.com}
+        PUBLIC_POLICY_EFFECTIVE_DATE: ${PUBLIC_POLICY_EFFECTIVE_DATE:-2026-10-30}
+    restart: unless-stopped
+    expose:
+      - '80'
 
   caddy:
     image: caddy:2-alpine
@@ -106,6 +119,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      legal:
+        condition: service_started
 
 volumes:
   postgres_data:

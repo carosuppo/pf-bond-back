@@ -16,7 +16,7 @@ describe('Presence persistence and reset', () => {
   };
   const tx = {
     $queryRaw: jest.fn().mockResolvedValue([]),
-    member: { update: jest.fn(), findFirst: jest.fn() },
+    member: { update: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
     group: { update: jest.fn() },
     pointOfInterest: {
       findUniqueOrThrow: jest.fn(),
@@ -43,6 +43,7 @@ describe('Presence persistence and reset', () => {
     });
     tx.group.update.mockResolvedValue({});
     tx.member.findFirst.mockResolvedValue({ id: 1 });
+    tx.member.findMany.mockResolvedValue([{ userId: 7 }]);
     tx.pointOfInterest.findFirst.mockResolvedValue({ id: 8 });
     tx.pointOfInterestPresence.updateMany.mockResolvedValue({ count: 1 });
   });

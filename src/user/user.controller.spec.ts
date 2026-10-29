@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 import { AccountDeletionService } from './service/account-deletion.service';
+import { AccountDeletionRequestService } from './service/account-deletion-request.service';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -11,7 +12,11 @@ describe('UserController', () => {
         profilePhoto: 'data:image/jpeg;base64,abc',
       }),
     };
-    const controller = new UserController(service as unknown as UserService);
+    const controller = new UserController(
+      service as unknown as UserService,
+      {} as AccountDeletionService,
+      {} as AccountDeletionRequestService,
+    );
     const file = {
       mimetype: 'image/jpeg',
       buffer: Buffer.from([0xff, 0xd8, 0xff]),
@@ -30,6 +35,7 @@ describe('UserController', () => {
     const controller = new UserController(
       service as unknown as UserService,
       {} as AccountDeletionService,
+      {} as AccountDeletionRequestService,
     );
     const response = {
       setHeader: jest.fn(),

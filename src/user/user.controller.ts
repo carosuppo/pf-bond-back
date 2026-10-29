@@ -6,7 +6,6 @@ import {
   Header,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Query,
@@ -21,6 +20,7 @@ import type { Response } from 'express';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ConfirmAccountDeletionDto } from './dto/confirm-account-deletion.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
@@ -30,6 +30,7 @@ import { UserAuthResponseDto } from './dto/user-auth-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { SessionAuthGuard } from './guard/session-auth.guard';
+import { AccountDeletionRequestService } from './service/account-deletion-request.service';
 import type { AuthenticatedRequest } from './interface/authenticated-request.interface';
 import type { ProfilePhotoFile } from './interface/profile-photo-file.interface';
 import { NormalizeEmailPipe } from './pipe/normalize-email.pipe';
@@ -44,6 +45,7 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly accountDeletionService: AccountDeletionService,
+    private readonly accountDeletionRequestService: AccountDeletionRequestService,
   ) {}
 
   @Post('resend-verification-email')
@@ -78,14 +80,27 @@ export class UserController {
     return this.userService.create(createUserDto);
   }
 
-  @Get()
-  async findAll(): Promise<UserResponseDto[]> {
-    return this.userService.findAll();
+  @Post('account-deletion-requests')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  async requestAccountDeletion(
+    @Body(NormalizeEmailPipe)
+    requestDto: ResendVerificationEmailDto,
+  ): Promise<MessageResponseDto> {
+    await this.accountDeletionRequestService.request(requestDto.email);
+    return {
+      message:
+        'Si la cuenta existe, recibirás un enlace para confirmar su eliminación.',
+    };
   }
 
-  @Get('email/:email')
-  async findByEmail(@Param('email') email: string): Promise<UserResponseDto> {
-    return this.userService.findByEmail(email);
+  @Post('account-deletion-requests/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Header('Cache-Control', 'no-store')
+  async confirmAccountDeletion(
+    @Body() confirmDto: ConfirmAccountDeletionDto,
+  ): Promise<void> {
+    await this.accountDeletionRequestService.confirm(confirmDto.token);
   }
 
   @Get('verify-email')

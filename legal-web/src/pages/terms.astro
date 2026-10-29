@@ -1,0 +1,102 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+
+const developerName = import.meta.env.PUBLIC_DEVELOPER_NAME?.trim() || 'DobleT';
+const privacyEmail =
+  import.meta.env.PUBLIC_PRIVACY_EMAIL?.trim() || 'dobletpf@gmail.com';
+---
+
+<SiteLayout
+  title="Términos de uso | Bond"
+  description="Reglas para usar Bond, compartir contenido en grupos y mantener una comunidad segura."
+>
+  <article>
+    <header class="hero">
+      <p class="eyebrow">Bond · reglas de uso</p>
+      <h1>Términos de uso</h1>
+      <p class="hero-copy">Vigentes desde el 30 de octubre de 2026.</p>
+    </header>
+
+    <section class="content-section" aria-labelledby="aceptacion">
+      <h2 id="aceptacion">Aceptación y edad mínima</h2>
+      <p>
+        Para crear una cuenta o continuar usando Bond después de una actualización
+        de estos términos, tenés que aceptarlos junto con la{' '}
+        <a href={`${import.meta.env.BASE_URL}privacy/`}>política de privacidad</a>.
+        Bond está disponible para personas de 13 años o más.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="contenido">
+      <h2 id="contenido">Contenido que compartís</h2>
+      <p>
+        El contenido generado por usuarios incluye nombres y descripciones de
+        grupos, fotos, eventos, lugares de interés y la ubicación que compartís.
+        Vos conservás tus derechos sobre el contenido que aportás. Al publicarlo
+        en un grupo, autorizás a Bond a guardarlo y mostrarlo a los miembros de
+        ese grupo para ofrecer las funciones de la aplicación.
+      </p>
+      <p>
+        Antes de compartir una foto, una ubicación u otra información, verificá
+        quiénes forman parte del grupo. El contenido compartido puede seguir
+        disponible para los demás miembros si eliminás tu cuenta; consultá la
+        política de privacidad para ver cómo se gestiona.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="reglas">
+      <h2 id="reglas">Contenido y conductas no permitidos</h2>
+      <p>No está permitido publicar contenido ni usar Bond para:</p>
+      <ul>
+        <li>Incumplir la ley o vulnerar derechos de otras personas.</li>
+        <li>Compartir fotos, textos o datos personales sin autorización.</li>
+        <li>Hostigar, amenazar, acosar, discriminar o incitar al odio o la violencia.</li>
+        <li>Explotar, sexualizar o poner en riesgo a menores.</li>
+        <li>Suplantar identidades, cometer fraude, enviar spam o distribuir software dañino.</li>
+        <li>Compartir la ubicación de otra persona sin su conocimiento y autorización.</li>
+      </ul>
+    </section>
+
+    <section class="content-section" aria-labelledby="moderacion">
+      <h2 id="moderacion">Seguridad y moderación</h2>
+      <p>
+        El responsable de Bond puede revisar una denuncia, retirar contenido o
+        limitar o cerrar cuentas que incumplan estos términos o pongan en riesgo
+        a otras personas. Las medidas se aplican según la situación y la
+        información disponible.
+      </p>
+      <p>
+        Podés bloquear a una persona desde su perfil en el mapa. El bloqueo es
+        mutuo: ambos dejan de ver el perfil y la ubicación del otro en los grupos
+        que comparten. Ninguno sale de los grupos y el contenido del grupo se
+        conserva para sus miembros. No podrán incorporarse a nuevos grupos donde
+        ya esté la otra persona. Podés administrar los bloqueos desde
+        Configuración.
+      </p>
+      <p>
+        Podés denunciar a un miembro desde su perfil en el mapa, seleccionando un
+        motivo y agregando detalles. Para denunciar otro contenido o hacer una
+        consulta, escribí a <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
+        Indicá el grupo y dónde aparece el contenido. No envíes tu contraseña.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="cuenta">
+      <h2 id="cuenta">Cuenta y eliminación</h2>
+      <p>
+        Sos responsable de mantener segura tu cuenta y de la actividad que se
+        realiza con ella. Podés solicitar su eliminación desde Configuración o
+        desde la <a href={`${import.meta.env.BASE_URL}account-deletion/`}>guía de eliminación</a>.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="contacto">
+      <h2 id="contacto">Contacto</h2>
+      <p>
+        El responsable de Bond es {developerName}. Para consultas sobre estos
+        términos o para denunciar contenido, escribí a{' '}
+        <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
+      </p>
+    </section>
+  </article>
+</SiteLayout>

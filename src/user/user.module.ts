@@ -7,6 +7,7 @@ import { EmailVerificationTokenPrismaRepository } from './repository/email-verif
 import { UserSessionPrismaRepository } from './repository/user-session.prisma.repository';
 import { UserPrismaRepository } from './repository/user.prisma.repository';
 import { AccountDeletionService } from './service/account-deletion.service';
+import { AccountDeletionRequestService } from './service/account-deletion-request.service';
 import { SessionAuthenticationService } from './service/session-authentication.service';
 import { SupabaseStorageService } from './storage/supabase-storage.service';
 import { UserController } from './user.controller';
@@ -19,6 +20,7 @@ import { UserService } from './user.service';
     UserService,
     SupabaseStorageService,
     AccountDeletionService,
+    AccountDeletionRequestService,
     SessionAuthGuard,
     SessionAuthenticationService,
     {
@@ -39,10 +41,12 @@ import { UserService } from './user.service';
     },
   ],
   exports: [
+    AccountDeletionRequestService,
     SessionAuthGuard,
     SessionAuthenticationService,
     SupabaseStorageService,
     'userSessionRepository',
+    'userRepository',
   ],
 })
 export class UserModule {}

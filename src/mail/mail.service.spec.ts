@@ -93,4 +93,38 @@ describe('MailService', () => {
     );
     expect(JSON.stringify(sendMail.mock.calls)).not.toContain('smtp-password');
   });
+
+  it('sends an account deletion confirmation link', async () => {
+    const sendMail = jest.fn().mockResolvedValue(undefined);
+    const transporter = {
+      sendMail,
+    } as unknown as ReturnType<typeof nodemailer.createTransport>;
+    jest.mocked(nodemailer.createTransport).mockReturnValue(transporter);
+    const config = {
+      get: jest.fn((key: string) => {
+        const values: Record<string, string> = {
+          MAIL_HOST: 'smtp.test',
+          MAIL_PORT: '587',
+          MAIL_USER: 'smtp-user',
+          MAIL_PASSWORD: 'smtp-password',
+          MAIL_FROM: 'noreply@example.com',
+        };
+        return values[key];
+      }),
+    } as unknown as ConfigService;
+    const service = new MailService(config);
+
+    await service.sendAccountDeletionConfirmation(
+      'person@example.com',
+      'Persona',
+      'https://bond.example.com/legal/account-deletion/confirm/#token',
+    );
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'person@example.com',
+        subject: 'Confirmá la eliminación de tu cuenta Bond',
+      }),
+    );
+  });
 });

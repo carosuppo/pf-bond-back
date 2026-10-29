@@ -65,8 +65,14 @@ model User {
   groupInboxNotifications GroupInboxNotification[]
 
   emailVerifiedAt         DateTime?
+  ageVerifiedAt           DateTime?
+  termsAcceptedAt         DateTime?
+  termsAcceptedVersion    String?
   lastActivityAt          DateTime?
   emailVerificationTokens EmailVerificationToken[]
+  accountDeletionRequest  AccountDeletionRequest?
+  blocksMade              UserBlock[]              @relation("UserBlocksMade")
+  blocksReceived          UserBlock[]              @relation("UserBlocksReceived")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -101,6 +107,19 @@ model EmailVerificationToken {
   @@index([userId])
 }
 
+model AccountDeletionRequest {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @unique
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
 model UserSession {
   id        Int       @id @default(autoincrement())
   userId    Int
@@ -116,6 +135,19 @@ model UserSession {
   @@index([userId])
 }
 
+model UserBlock {
+  id            Int      @id @default(autoincrement())
+  blockerUserId Int
+  blockedUserId Int
+  createdAt     DateTime @default(now())
+
+  blocker User @relation("UserBlocksMade", fields: [blockerUserId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlocksReceived", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerUserId, blockedUserId])
+  @@index([blockedUserId])
+}
+
 model Group {
   id                       Int     @id @default(autoincrement())
   name                     String
@@ -128,7 +160,7 @@ model Group {
   events             Event[]
   pointsOfInterest   PointOfInterest[]
   reminders          Reminder[]
-  expenseAccounts  ExpenseAccount[]
+  expenseAccounts    ExpenseAccount[]
   joinRequests       GroupJoinRequest[]
   inboxNotifications GroupInboxNotification[]
 
@@ -150,8 +182,8 @@ model Member {
   group Group @relation(fields: [groupId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
 
-  eventMembers   EventMember[]
-  eventReminders EventReminder[]
+  eventMembers          EventMember[]
+  eventReminders        EventReminder[]
   expenseAccountMembers ExpenseAccountMember[]
 
   @@unique([userId, groupId])
@@ -206,10 +238,10 @@ model Event {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  group     Group           @relation(fields: [groupId], references: [id])
-  members   EventMember[]
-  location  Location?       @relation(fields: [locationId], references: [id])
-  reminders EventReminder[]
+  group           Group            @relation(fields: [groupId], references: [id])
+  members         EventMember[]
+  location        Location?        @relation(fields: [locationId], references: [id])
+  reminders       EventReminder[]
   expenseAccounts ExpenseAccount[]
 }
 
@@ -246,16 +278,16 @@ model EventReminder {
 }
 
 model ExpenseAccount {
-  id        Int      @id @default(autoincrement())
-  name      String
-  groupId   Int
-  eventId   Int?
+  id      Int    @id @default(autoincrement())
+  name    String
+  groupId Int
+  eventId Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  group   Group  @relation(fields: [groupId], references: [id])
-  event   Event? @relation(fields: [eventId], references: [id])
+  group   Group                  @relation(fields: [groupId], references: [id])
+  event   Event?                 @relation(fields: [eventId], references: [id])
   members ExpenseAccountMember[]
 
   @@index([groupId])

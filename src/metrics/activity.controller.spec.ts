@@ -7,6 +7,7 @@ import { ActivityController } from './activity.controller';
 import { ActivityService } from './activity.service';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import { SessionAuthenticationService } from '../user/service/session-authentication.service';
+import { TERMS_OF_USE_VERSION } from '../user/constants/terms-of-use.constants';
 import { LocationController } from '../location/location.controller';
 import { LocationService } from '../location/location.service';
 
@@ -36,6 +37,9 @@ describe('Foreground activity HTTP', () => {
                           name: 'test',
                           email: 'test@example.test',
                           profilePhoto: null,
+                          ageVerifiedAt: new Date(),
+                          termsAcceptedAt: new Date(),
+                          termsAcceptedVersion: TERMS_OF_USE_VERSION,
                         },
                       }
                     : null,

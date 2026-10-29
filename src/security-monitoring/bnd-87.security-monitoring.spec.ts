@@ -31,6 +31,20 @@ class InMemorySecurityEventRepository implements ISecurityEventRepository {
     return Promise.resolve();
   }
 
+  deleteOlderThan(createdBefore: Date): Promise<void> {
+    for (let index = this.events.length - 1; index >= 0; index--) {
+      if (this.events[index].createdAt < createdBefore) {
+        this.events.splice(index, 1);
+      }
+    }
+    for (let index = this.alerts.length - 1; index >= 0; index--) {
+      if (this.alerts[index].createdAt < createdBefore) {
+        this.alerts.splice(index, 1);
+      }
+    }
+    return Promise.resolve();
+  }
+
   countRecentAuthenticationFailures(
     identifierHash: string,
     since: Date,
@@ -125,15 +139,11 @@ describe('BND-87 - Monitoreo y alertas de seguridad', () => {
   beforeEach(() => {
     jest.useFakeTimers();
 
-    jest.setSystemTime(
-      new Date('2026-09-23T12:00:00.000Z'),
-    );
+    jest.setSystemTime(new Date('2026-09-23T12:00:00.000Z'));
 
     repository = new InMemorySecurityEventRepository();
 
-    sendSecurityAlert = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    sendSecurityAlert = jest.fn().mockResolvedValue(undefined);
 
     const values: Record<string, string> = {
       SECURITY_AUTH_THRESHOLD: '5',
@@ -148,144 +158,95 @@ describe('BND-87 - Monitoreo y alertas de seguridad', () => {
       get: jest.fn((key: string) => values[key]),
     } as unknown as ConfigService;
 
-    const config = new SecurityMonitoringConfig(
-      configService,
-    );
+    const config = new SecurityMonitoringConfig(configService);
 
-    const alertService = new SecurityAlertService(
-      repository,
-      config,
-      {
-        sendSecurityAlert,
-      } as unknown as MailService,
-    );
+    const alertService = new SecurityAlertService(repository, config, {
+      sendSecurityAlert,
+    } as unknown as MailService);
 
-    monitoringService = new SecurityMonitoringService(
-      repository,
-      alertService,
-    );
+    monitoringService = new SecurityMonitoringService(repository, alertService);
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it(
-    'genera una alerta al alcanzar el umbral de intentos fallidos de login',
-    async () => {
-      await repeat(
-        5,
-        () => recordFailedLogin(monitoringService),
-      );
+  it('genera una alerta al alcanzar el umbral de intentos fallidos de login', async () => {
+    await repeat(5, () => recordFailedLogin(monitoringService));
 
-      expect(sendSecurityAlert).toHaveBeenCalledTimes(1);
+    expect(sendSecurityAlert).toHaveBeenCalledTimes(1);
 
-      expect(sendSecurityAlert).toHaveBeenCalledWith(
-        'giudicitomas1@gmail.com',
-        expect.objectContaining({
-          type: SecurityAlertType.AUTH_LOGIN_FAILED,
-          eventCount: 5,
-          windowSeconds: 600,
-        }),
-      );
-    },
-  );
+    expect(sendSecurityAlert).toHaveBeenCalledWith(
+      'giudicitomas1@gmail.com',
+      expect.objectContaining({
+        type: SecurityAlertType.AUTH_LOGIN_FAILED,
+        eventCount: 5,
+        windowSeconds: 600,
+      }),
+    );
+  });
 
-  it(
-    'no cuenta intentos de login que quedaron fuera de la ventana temporal',
-    async () => {
-      await repeat(
-        4,
-        () => recordFailedLogin(monitoringService),
-      );
+  it('no cuenta intentos de login que quedaron fuera de la ventana temporal', async () => {
+    await repeat(4, () => recordFailedLogin(monitoringService));
 
-      jest.advanceTimersByTime(601_000);
+    jest.advanceTimersByTime(601_000);
 
-      await recordFailedLogin(monitoringService);
+    await recordFailedLogin(monitoringService);
 
-      expect(repository.events).toHaveLength(5);
+    expect(repository.events).toHaveLength(5);
 
-      expect(
-        sendSecurityAlert,
-      ).not.toHaveBeenCalled();
-    },
-  );
+    expect(sendSecurityAlert).not.toHaveBeenCalled();
+  });
 
-  it(
-    'genera una alerta al alcanzar el umbral de accesos rechazados a geolocalización',
-    async () => {
-      await repeat(
-        9,
-        () => recordForbiddenLocation(monitoringService),
-      );
+  it('genera una alerta al alcanzar el umbral de accesos rechazados a geolocalización', async () => {
+    await repeat(9, () => recordForbiddenLocation(monitoringService));
 
-      expect(
-        sendSecurityAlert,
-      ).not.toHaveBeenCalled();
+    expect(sendSecurityAlert).not.toHaveBeenCalled();
 
-      await recordForbiddenLocation(
-        monitoringService,
-      );
+    await recordForbiddenLocation(monitoringService);
 
-      expect(sendSecurityAlert).toHaveBeenCalledTimes(1);
+    expect(sendSecurityAlert).toHaveBeenCalledTimes(1);
 
-      expect(sendSecurityAlert).toHaveBeenCalledWith(
-        'giudicitomas1@gmail.com',
-        expect.objectContaining({
-          type: SecurityAlertType.LOCATION_ACCESS_DENIED,
-          eventCount: 10,
-          userId: 7,
-          windowSeconds: 300,
-        }),
-      );
-    },
-  );
+    expect(sendSecurityAlert).toHaveBeenCalledWith(
+      'giudicitomas1@gmail.com',
+      expect.objectContaining({
+        type: SecurityAlertType.LOCATION_ACCESS_DENIED,
+        eventCount: 10,
+        userId: 7,
+        windowSeconds: 300,
+      }),
+    );
+  });
 
-  it(
-    'no mezcla rechazos de ubicación pertenecientes a usuarios diferentes',
-    async () => {
-      await repeat(
-        5,
-        () => recordForbiddenLocation(monitoringService),
-      );
+  it('no mezcla rechazos de ubicación pertenecientes a usuarios diferentes', async () => {
+    await repeat(5, () => recordForbiddenLocation(monitoringService));
 
-      await repeat(
-        5,
-        () =>
-          monitoringService.record({
-            type: SecurityEventType.LOCATION_FORBIDDEN,
-            ip: '203.0.113.10',
-            userId: 8,
-            method: 'GET',
-            path: '/location/group/99/members',
-            statusCode: 403,
-          }),
-      );
+    await repeat(5, () =>
+      monitoringService.record({
+        type: SecurityEventType.LOCATION_FORBIDDEN,
+        ip: '203.0.113.10',
+        userId: 8,
+        method: 'GET',
+        path: '/location/group/99/members',
+        statusCode: 403,
+      }),
+    );
 
-      expect(repository.events).toHaveLength(10);
+    expect(repository.events).toHaveLength(10);
 
-      expect(
-        sendSecurityAlert,
-      ).not.toHaveBeenCalled();
-    },
-  );
+    expect(sendSecurityAlert).not.toHaveBeenCalled();
+  });
 
-  it(
-    'aplica cooldown y evita alertas duplicadas',
-    async () => {
-      await repeat(
-        5,
-        () => recordFailedLogin(monitoringService),
-      );
+  it('aplica cooldown y evita alertas duplicadas', async () => {
+    await repeat(5, () => recordFailedLogin(monitoringService));
 
-      await recordFailedLogin(monitoringService);
+    await recordFailedLogin(monitoringService);
 
-      expect(repository.events).toHaveLength(6);
-      expect(repository.alerts).toHaveLength(1);
+    expect(repository.events).toHaveLength(6);
+    expect(repository.alerts).toHaveLength(1);
 
-      expect(sendSecurityAlert).toHaveBeenCalledTimes(1);
-    },
-  );
+    expect(sendSecurityAlert).toHaveBeenCalledTimes(1);
+  });
 });
 
 async function recordFailedLogin(

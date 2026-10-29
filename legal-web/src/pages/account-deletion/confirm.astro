@@ -1,0 +1,53 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+---
+
+<SiteLayout
+  title="Confirmar eliminación | Bond"
+  description="Confirmación de la solicitud de eliminación de cuenta Bond."
+>
+  <section class="hero">
+    <p class="eyebrow">Bond · control de datos</p>
+    <h1>Confirmar eliminación</h1>
+    <p id="confirmation-status" class="hero-copy" aria-live="polite">
+      Verificando el enlace de confirmación…
+    </p>
+    <p id="confirmation-home" hidden>
+      <a href={`${import.meta.env.BASE_URL}`}>Volver a privacidad y datos</a>
+    </p>
+  </section>
+  <script>
+    const status = document.querySelector<HTMLElement>(
+      '#confirmation-status',
+    );
+    const home = document.querySelector<HTMLElement>('#confirmation-home');
+    const token = window.location.hash.slice(1);
+    window.history.replaceState(null, '', window.location.pathname);
+
+    if (status) {
+      if (!token) {
+        status.textContent =
+          'El enlace está incompleto. Solicitá uno nuevo.';
+      } else {
+        try {
+          const response = await fetch(
+            '/user/account-deletion-requests/confirm',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token }),
+            },
+          );
+
+          status.textContent = response.ok
+            ? 'La cuenta y los datos personales asociados fueron eliminados.'
+            : 'El enlace es inválido o venció. Iniciá una nueva solicitud de eliminación.';
+        } catch {
+          status.textContent =
+            'No se pudo completar la solicitud. Revisá tu conexión e intentá de nuevo.';
+        }
+      }
+      if (home) home.hidden = false;
+    }
+  </script>
+</SiteLayout>

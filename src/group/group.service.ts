@@ -6,12 +6,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { RoleEnum } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { logErrorSafely } from '../common/logging/error-logging';
 import { NotificationService } from '../notification/notification.service';
 import type { IMemberRepository } from '../member/repository/member.repository.interface';
+import type { IUserBlockRepository } from '../member/repository/user-block.repository.interface';
 import type { MessageResponseDto } from '../user/dto/message-response.dto';
 import { MAX_PROFILE_PHOTO_SIZE } from '../user/constants/profile-photo.constants';
 import type { ProfilePhotoFile } from '../user/interface/profile-photo-file.interface';
@@ -50,6 +52,9 @@ export class GroupService {
     private readonly groupJoinRequestRepository: IGroupJoinRequestRepository,
     private readonly notificationService: NotificationService,
     private readonly groupEventService: GroupEventService,
+    @Optional()
+    @Inject('userBlockRepository')
+    private readonly userBlockRepository?: IUserBlockRepository,
   ) {}
 
   async createGroup(
@@ -261,7 +266,20 @@ export class GroupService {
       throw new ForbiddenException('No perteneces a este grupo.');
     }
 
-    return GroupMapper.toGetGroupResponse(group);
+    const response = GroupMapper.toGetGroupResponse(group);
+    const blockedUserIds = new Set(
+      (await this.userBlockRepository?.findMutuallyBlockedUserIds(userId)) ??
+        [],
+    );
+
+    return {
+      ...response,
+      members: response.members.map((groupMember) =>
+        blockedUserIds.has(groupMember.idUser)
+          ? { ...groupMember, name: 'Miembro bloqueado', profilePhoto: null }
+          : groupMember,
+      ),
+    };
   }
 
   async join(
@@ -286,6 +304,14 @@ export class GroupService {
     if (existingMember) {
       throw new ConflictException(
         GroupMapper.toJoinResponse(group, 'Ya eres miembro de este grupo.'),
+      );
+    }
+
+    if (
+      await this.userBlockRepository?.hasBlockedMemberInGroup(userId, group.id)
+    ) {
+      throw new ForbiddenException(
+        'No puedes ingresar a un grupo que incluya a una persona bloqueada.',
       );
     }
 
@@ -344,6 +370,24 @@ export class GroupService {
     requestId: number,
     adminUserId: number,
   ): Promise<GroupJoinRequestActionResponseDto> {
+    const pendingRequests =
+      await this.groupJoinRequestRepository.findPendingForAdmin(adminUserId);
+    const request = pendingRequests.find(
+      (pendingRequest) => pendingRequest.id === requestId,
+    );
+
+    if (
+      request &&
+      (await this.userBlockRepository?.hasBlockedMemberInGroup(
+        request.requesterUserId,
+        request.groupId,
+      ))
+    ) {
+      throw new ForbiddenException(
+        'No puedes aceptar una solicitud de ingreso de una persona bloqueada.',
+      );
+    }
+
     return this.resolveJoinRequest(
       await this.groupJoinRequestRepository.accept(requestId, adminUserId),
       true,

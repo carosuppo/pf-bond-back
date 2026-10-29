@@ -1,0 +1,135 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+
+const privacyEmail =
+  import.meta.env.PUBLIC_PRIVACY_EMAIL?.trim() || 'dobletpf@gmail.com';
+---
+
+<SiteLayout
+  title="Eliminar cuenta | Bond"
+  description="Cómo solicitar la eliminación de una cuenta Bond y sus datos asociados."
+>
+  <article>
+    <header class="hero">
+      <p class="eyebrow">Bond · control de datos</p>
+      <h1>Solicitar eliminación de cuenta</h1>
+      <p class="hero-copy">
+        Podés eliminar una cuenta desde Bond o solicitarlo desde esta página si
+        ya no tenés acceso a la aplicación.
+      </p>
+    </header>
+
+    <section class="content-section" aria-labelledby="en-app">
+      <h2 id="en-app">Desde la aplicación</h2>
+      <ol>
+        <li>Abrí Configuración.</li>
+        <li>Elegí “Eliminar cuenta”.</li>
+        <li>Confirmá la solicitud.</li>
+      </ol>
+      <p>
+        Bond elimina la cuenta y los datos personales asociados, incluyendo la
+        foto de perfil, la información de acceso, las notificaciones, la ubicación
+        actual y los registros de seguridad vinculados.
+      </p>
+    </section>
+
+    <section class="request-panel" aria-labelledby="desde-web">
+      <h2 id="desde-web">Si ya no tenés la aplicación</h2>
+      <p>
+        Ingresá el correo asociado a la cuenta. Si existe una cuenta con esa
+        dirección, enviaremos un enlace de confirmación a ese correo. El mismo
+        proceso sirve para eliminar cuentas que todavía no verificaron su correo.
+        No compartas tu contraseña.
+      </p>
+      <form id="deletion-request-form">
+        <label for="account-email">Correo de la cuenta</label>
+        <input
+          id="account-email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          required
+        />
+        <button class="button" type="submit">Enviar solicitud</button>
+      </form>
+      <p id="deletion-request-status" class="callout" aria-live="polite">
+        No te diremos si ese correo está registrado. Si la cuenta existe,
+        recibirás un enlace para confirmar su eliminación.
+      </p>
+      <p>
+        El enlace se envía al correo indicado y vence a las 24 horas. La solicitud
+        no se completa hasta abrirlo y confirmarla. Por seguridad, podés pedir un
+        nuevo enlace cada 15 minutos.
+      </p>
+      <noscript>
+        <p>
+          Si no podés enviar el formulario, escribí a{' '}
+          <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a> desde el correo de
+          la cuenta.
+        </p>
+      </noscript>
+    </section>
+
+    <section class="content-section" aria-labelledby="alcance">
+      <h2 id="alcance">Qué se elimina y qué puede conservarse</h2>
+      <p>
+        Se eliminan los datos de la cuenta, la foto personal, la información de
+        acceso, las notificaciones y la ubicación actual que no sea necesaria para
+        el contenido compartido.
+      </p>
+      <p>
+        Si la cuenta participa en un grupo con otros miembros, Bond conserva el
+        contenido compartido de ese grupo para que ellos puedan seguir usándolo.
+        Si no quedan otros miembros, el grupo y su contenido asociado se eliminan.
+        Algunas copias de respaldo pueden conservar temporalmente datos ya
+        eliminados; consultá la política de privacidad para más detalles.
+      </p>
+      <p>
+        La solicitud elimina la cuenta; no la desactiva temporalmente. Consultá la
+        política de privacidad para conocer cómo se eliminan los datos asociados.
+      </p>
+      <p>
+        Consultá la <a href={`${import.meta.env.BASE_URL}privacy/`}>política de privacidad</a> 
+      para conocer los detalles y el contacto del responsable.
+      </p>
+    </section>
+  </article>
+  <script>
+    const form = document.querySelector<HTMLFormElement>(
+      '#deletion-request-form',
+    );
+    const status = document.querySelector<HTMLElement>(
+      '#deletion-request-status',
+    );
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!status) return;
+
+      const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (submit) submit.disabled = true;
+      status.textContent = 'Enviando la solicitud…';
+
+      try {
+        const response = await fetch('/user/account-deletion-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: new FormData(form).get('email'),
+          }),
+        });
+
+        if (!response.ok) throw new Error('request-failed');
+
+        status.textContent =
+          'Si la cuenta existe, recibirás un enlace para confirmar su eliminación.';
+        form.reset();
+      } catch {
+        status.textContent =
+          'No se pudo enviar la solicitud. Revisá tu conexión e intentá de nuevo.';
+      } finally {
+        if (submit) submit.disabled = false;
+      }
+    });
+  </script>
+</SiteLayout>

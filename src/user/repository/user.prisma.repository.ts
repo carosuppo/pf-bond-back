@@ -16,14 +16,9 @@ export class UserPrismaRepository implements IUserRepository {
         name: createUserData.name,
         email: createUserData.email,
         passwordHash: createUserData.passwordHash,
-      },
-    });
-  }
-
-  async findAll(): Promise<User[]> {
-    return this.prismaService.user.findMany({
-      orderBy: {
-        createdAt: 'desc',
+        ageVerifiedAt: createUserData.ageVerifiedAt,
+        termsAcceptedAt: createUserData.termsAcceptedAt,
+        termsAcceptedVersion: createUserData.termsAcceptedVersion,
       },
     });
   }
@@ -44,6 +39,24 @@ export class UserPrismaRepository implements IUserRepository {
       data: {
         emailVerifiedAt: new Date(),
       },
+    });
+  }
+
+  async markAgeVerified(userId: number, verifiedAt: Date): Promise<User> {
+    return this.prismaService.user.update({
+      where: { id: userId },
+      data: { ageVerifiedAt: verifiedAt },
+    });
+  }
+
+  async markTermsAccepted(
+    userId: number,
+    acceptedAt: Date,
+    termsVersion: string,
+  ): Promise<User> {
+    return this.prismaService.user.update({
+      where: { id: userId },
+      data: { termsAcceptedAt: acceptedAt, termsAcceptedVersion: termsVersion },
     });
   }
 

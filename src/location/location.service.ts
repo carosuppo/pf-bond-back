@@ -5,9 +5,11 @@ import {
   Inject,
   Injectable,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { GroupEventService } from '../group/group-event.service';
 import { logErrorSafely } from '../common/logging/error-logging';
+import type { IUserBlockRepository } from '../member/repository/user-block.repository.interface';
 
 import { CurrentLocationResponseDto } from './dto/current-location-response.dto';
 
@@ -32,6 +34,9 @@ export class LocationService {
 
     private readonly groupEventService: GroupEventService,
     private readonly presenceService: PointOfInterestPresenceService,
+    @Optional()
+    @Inject('userBlockRepository')
+    private readonly userBlockRepository?: IUserBlockRepository,
   ) {}
 
   async updateCurrentLocation(
@@ -193,16 +198,21 @@ export class LocationService {
     groupId: number,
   ): Promise<MemberLocationResponseDto[]> {
     await this.requireMembership(userId, groupId);
+    const [members, mutuallyBlockedUserIds] = await Promise.all([
+      this.locationRepository.findVisibleMembers(groupId, userId),
+      this.userBlockRepository?.findMutuallyBlockedUserIds(userId) ?? [],
+    ]);
+    const blockedUserIds = new Set(mutuallyBlockedUserIds);
 
-    return (
-      await this.locationRepository.findVisibleMembers(groupId, userId)
-    ).map((member) => ({
-      memberId: member.memberId,
-      userId: member.userId,
-      name: member.name,
-      profilePhoto: member.profilePhoto,
-      ...member.location,
-    }));
+    return members
+      .filter((member) => !blockedUserIds.has(member.userId))
+      .map((member) => ({
+        memberId: member.memberId,
+        userId: member.userId,
+        name: member.name,
+        profilePhoto: member.profilePhoto,
+        ...member.location,
+      }));
   }
 
   async verifyGroupMembership(userId: number, groupId: number): Promise<void> {

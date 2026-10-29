@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -8,6 +9,12 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../mail/mail.service';
+import { MINIMUM_AGE_RESTRICTION_MESSAGE } from './constants/minimum-account-age';
+import {
+  TERMS_ACCEPTANCE_REQUIRED_MESSAGE,
+  TERMS_OF_USE_VERSION,
+} from './constants/terms-of-use.constants';
+import { CreateUserDto } from './dto/create-user.dto';
 import { MAX_PROFILE_PHOTO_SIZE } from './constants/profile-photo.constants';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ProfilePhotoFile } from './interface/profile-photo-file.interface';
@@ -17,6 +24,7 @@ import type {
 } from './repository/email-verification-token.repository.interface';
 import type { IUserSessionRepository } from './repository/user-session.repository.interface';
 import type { IUserRepository } from './repository/user.repository.interface';
+import { AccountDeletionService } from './service/account-deletion.service';
 import { SupabaseStorageService } from './storage/supabase-storage.service';
 import { UserService } from './user.service';
 
@@ -31,6 +39,9 @@ describe('UserService email verification', () => {
     notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: null,
+    ageVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+    termsAcceptedAt: new Date('2026-01-01T00:00:00.000Z'),
+    termsAcceptedVersion: TERMS_OF_USE_VERSION,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   };
@@ -57,6 +68,7 @@ describe('UserService email verification', () => {
       {} as unknown as MailService,
       {} as unknown as ConfigService,
       {} as unknown as SupabaseStorageService,
+      {} as unknown as AccountDeletionService,
     );
 
   it('verifies the email without consuming the token before the app exchanges it', async () => {
@@ -158,6 +170,211 @@ describe('UserService email verification', () => {
   });
 });
 
+describe('UserService minimum account age', () => {
+  const birthDateForAge = (age: number): string => {
+    const today = new Date();
+    return new Date(
+      Date.UTC(
+        today.getUTCFullYear() - age,
+        today.getUTCMonth(),
+        today.getUTCDate(),
+      ),
+    )
+      .toISOString()
+      .slice(0, 10);
+  };
+
+  const buildUser = (
+    ageVerifiedAt: Date | null,
+    termsAcceptedVersion: string | null = TERMS_OF_USE_VERSION,
+  ): User => ({
+    id: 1,
+    name: 'Persona',
+    email: 'persona@bond.test',
+    passwordHash: 'hash',
+    profilePhoto: null,
+    profilePhotoPath: null,
+    notificationsEnabled: true,
+    locationId: null,
+    emailVerifiedAt: new Date(),
+    ageVerifiedAt,
+    termsAcceptedAt: termsAcceptedVersion ? new Date() : null,
+    termsAcceptedVersion,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const createService = (
+    userRepository: Partial<IUserRepository>,
+    userSessionRepository: Partial<IUserSessionRepository> = {},
+    accountDeletionService: Partial<AccountDeletionService> = {},
+  ): UserService =>
+    new UserService(
+      userRepository as unknown as IUserRepository,
+      userSessionRepository as unknown as IUserSessionRepository,
+      {} as unknown as IEmailVerificationTokenRepository,
+      {} as unknown as MailService,
+      {} as unknown as ConfigService,
+      {} as unknown as SupabaseStorageService,
+      accountDeletionService as unknown as AccountDeletionService,
+    );
+
+  it('rejects registration below 13 without creating the account', async () => {
+    const userRepository: Partial<IUserRepository> = {
+      create: jest.fn(),
+    };
+    const service = createService(userRepository);
+    const user: CreateUserDto = {
+      name: 'Persona',
+      email: 'persona@bond.test',
+      birthDate: birthDateForAge(12),
+      password: 'password123',
+      termsVersion: TERMS_OF_USE_VERSION,
+    };
+
+    await expect(service.create(user)).rejects.toThrow(
+      MINIMUM_AGE_RESTRICTION_MESSAGE,
+    );
+    expect(userRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects registration without accepting the current terms', async () => {
+    const userRepository: Partial<IUserRepository> = {
+      create: jest.fn(),
+    };
+    const service = createService(userRepository);
+
+    await expect(
+      service.create({
+        name: 'Persona',
+        email: 'persona@bond.test',
+        birthDate: birthDateForAge(13),
+        password: 'password123',
+        termsVersion: 'older-version',
+      }),
+    ).rejects.toThrow(TERMS_ACCEPTANCE_REQUIRED_MESSAGE);
+    expect(userRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('asks existing accounts to verify age before establishing a session', async () => {
+    const user = buildUser(null);
+    const userRepository: Partial<IUserRepository> = {
+      findByEmail: jest.fn().mockResolvedValue(user),
+      markAgeVerified: jest.fn(),
+    };
+    const userSessionRepository: Partial<IUserSessionRepository> = {
+      create: jest.fn(),
+    };
+    const service = createService(userRepository, userSessionRepository);
+    const passwordHash = await bcrypt.hash('password123', 4);
+    user.passwordHash = passwordHash;
+
+    await expect(
+      service.login({ email: user.email, password: 'password123' }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(userRepository.markAgeVerified).not.toHaveBeenCalled();
+    expect(userSessionRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('deletes a legacy account that fails the minimum age check', async () => {
+    const user = buildUser(null);
+    const userRepository: Partial<IUserRepository> = {
+      findByEmail: jest.fn().mockResolvedValue(user),
+      markAgeVerified: jest.fn(),
+    };
+    const userSessionRepository: Partial<IUserSessionRepository> = {
+      create: jest.fn(),
+    };
+    const accountDeletionService: Partial<AccountDeletionService> = {
+      deleteAccount: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = createService(
+      userRepository,
+      userSessionRepository,
+      accountDeletionService,
+    );
+    user.passwordHash = await bcrypt.hash('password123', 4);
+
+    await expect(
+      service.login({
+        email: user.email,
+        password: 'password123',
+        birthDate: birthDateForAge(12),
+      }),
+    ).rejects.toThrow(MINIMUM_AGE_RESTRICTION_MESSAGE);
+    expect(accountDeletionService.deleteAccount).toHaveBeenCalledWith(user.id);
+    expect(userSessionRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('marks an eligible legacy account verified without persisting its birth date', async () => {
+    const user = buildUser(null);
+    const markAgeVerified = jest.fn().mockResolvedValue({
+      ...user,
+      ageVerifiedAt: new Date(),
+    });
+    const userRepository: Partial<IUserRepository> = {
+      findByEmail: jest.fn().mockResolvedValue(user),
+      markAgeVerified,
+    };
+    const userSessionRepository: Partial<IUserSessionRepository> = {
+      create: jest.fn().mockResolvedValue({}),
+    };
+    const service = createService(userRepository, userSessionRepository);
+    user.passwordHash = await bcrypt.hash('password123', 4);
+
+    await service.login({
+      email: user.email,
+      password: 'password123',
+      birthDate: birthDateForAge(13),
+    });
+
+    expect(userRepository.markAgeVerified).toHaveBeenCalledWith(
+      user.id,
+      expect.any(Date),
+    );
+    expect(userSessionRepository.create).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(markAgeVerified.mock.calls)).not.toContain(
+      birthDateForAge(13),
+    );
+  });
+
+  it('requires existing accounts to accept the current terms before login', async () => {
+    const user = buildUser(new Date(), null);
+    const markTermsAccepted = jest.fn().mockResolvedValue({
+      ...user,
+      termsAcceptedAt: new Date(),
+      termsAcceptedVersion: TERMS_OF_USE_VERSION,
+    });
+    const userRepository: Partial<IUserRepository> = {
+      findByEmail: jest.fn().mockResolvedValue(user),
+      markTermsAccepted,
+    };
+    const userSessionRepository: Partial<IUserSessionRepository> = {
+      create: jest.fn().mockResolvedValue({}),
+    };
+    const service = createService(userRepository, userSessionRepository);
+    user.passwordHash = await bcrypt.hash('password123', 4);
+
+    await expect(
+      service.login({ email: user.email, password: 'password123' }),
+    ).rejects.toThrow(TERMS_ACCEPTANCE_REQUIRED_MESSAGE);
+    expect(userSessionRepository.create).not.toHaveBeenCalled();
+
+    await service.login({
+      email: user.email,
+      password: 'password123',
+      termsVersion: TERMS_OF_USE_VERSION,
+    });
+
+    expect(markTermsAccepted).toHaveBeenCalledWith(
+      user.id,
+      expect.any(Date),
+      TERMS_OF_USE_VERSION,
+    );
+    expect(userSessionRepository.create).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('UserService.update', () => {
   const buildUser = (overrides: Partial<User> = {}): User => ({
     id: 1,
@@ -169,6 +386,9 @@ describe('UserService.update', () => {
     notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
+    ageVerifiedAt: new Date(),
+    termsAcceptedAt: new Date(),
+    termsAcceptedVersion: TERMS_OF_USE_VERSION,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -184,6 +404,7 @@ describe('UserService.update', () => {
       {} as unknown as MailService,
       {} as unknown as ConfigService,
       {} as unknown as SupabaseStorageService,
+      {} as unknown as AccountDeletionService,
     );
 
   it('actualiza nombre y correo con datos válidos', async () => {
@@ -297,6 +518,9 @@ describe('UserService.changePassword', () => {
     notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
+    ageVerifiedAt: new Date(),
+    termsAcceptedAt: new Date(),
+    termsAcceptedVersion: TERMS_OF_USE_VERSION,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -312,6 +536,7 @@ describe('UserService.changePassword', () => {
       {} as unknown as MailService,
       {} as unknown as ConfigService,
       {} as unknown as SupabaseStorageService,
+      {} as unknown as AccountDeletionService,
     );
 
   it('cambia la contraseña con una nueva contraseña válida', async () => {
@@ -393,6 +618,9 @@ describe('UserService.updateProfilePhoto', () => {
     profilePhotoPath: null,
     locationId: null,
     emailVerifiedAt: new Date(),
+    ageVerifiedAt: new Date(),
+    termsAcceptedAt: new Date(),
+    termsAcceptedVersion: TERMS_OF_USE_VERSION,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -410,6 +638,7 @@ describe('UserService.updateProfilePhoto', () => {
       {} as unknown as MailService,
       {} as unknown as ConfigService,
       storage as unknown as SupabaseStorageService,
+      {} as unknown as AccountDeletionService,
     );
 
   it('guarda una imagen JPEG válida y la devuelve en la respuesta', async () => {
@@ -509,6 +738,9 @@ describe('UserService.getProfile', () => {
     notificationsEnabled: true,
     locationId: null,
     emailVerifiedAt: new Date(),
+    ageVerifiedAt: new Date(),
+    termsAcceptedAt: new Date(),
+    termsAcceptedVersion: TERMS_OF_USE_VERSION,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -524,6 +756,7 @@ describe('UserService.getProfile', () => {
       {} as unknown as MailService,
       {} as unknown as ConfigService,
       {} as unknown as SupabaseStorageService,
+      {} as unknown as AccountDeletionService,
     );
 
   it('devuelve nombre, correo y listado de grupos del usuario', async () => {

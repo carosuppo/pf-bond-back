@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { RoleEnum } from '@prisma/client';
 import { GroupService } from './group.service';
 import { InvitationCodeHelper } from './helper/invitation-code.helper';
 import { SupabaseStorageService } from '../user/storage/supabase-storage.service';
@@ -19,6 +20,7 @@ describe('GroupService', () => {
     create: jest.fn(),
     findByInvitationCode: jest.fn(),
     findByUserId: jest.fn(),
+    findGroupWithMembers: jest.fn(),
     update: jest.fn(),
     findById: jest.fn(),
     leave: jest.fn(),
@@ -55,8 +57,16 @@ describe('GroupService', () => {
     publish: jest.fn(),
   };
 
+  const userBlockRepositoryMock = {
+    findMutuallyBlockedUserIds: jest.fn().mockResolvedValue([]),
+    hasBlockedMemberInGroup: jest.fn().mockResolvedValue(false),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
+    userBlockRepositoryMock.findMutuallyBlockedUserIds.mockResolvedValue([]);
+    userBlockRepositoryMock.hasBlockedMemberInGroup.mockResolvedValue(false);
+    groupJoinRequestRepositoryMock.findPendingForAdmin.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -74,10 +84,47 @@ describe('GroupService', () => {
         },
         { provide: NotificationService, useValue: notificationServiceMock },
         { provide: GroupEventService, useValue: groupEventServiceMock },
+        { provide: 'userBlockRepository', useValue: userBlockRepositoryMock },
       ],
     }).compile();
 
     service = module.get(GroupService);
+  });
+
+  it('hides blocked users profiles from shared group member lists', async () => {
+    groupRepositoryMock.findGroupWithMembers.mockResolvedValue({
+      id: 1,
+      name: 'Familia',
+      image: 'familia.png',
+      description: null,
+      shareLocationMandatorily: false,
+      invitationCode: 'ABC123',
+      members: [
+        {
+          id: 10,
+          idUser: 7,
+          name: 'Ana',
+          profilePhoto: null,
+          role: RoleEnum.ADMIN,
+        },
+        {
+          id: 11,
+          idUser: 8,
+          name: 'Persona bloqueada',
+          profilePhoto: 'foto.png',
+          role: RoleEnum.MEMBER,
+        },
+      ],
+    });
+    memberRepositoryMock.findByUserAndGroup.mockResolvedValue({ id: 10 });
+    userBlockRepositoryMock.findMutuallyBlockedUserIds.mockResolvedValue([8]);
+
+    await expect(service.getOne(1, 7)).resolves.toMatchObject({
+      members: [
+        { idUser: 7, name: 'Ana' },
+        { idUser: 8, name: 'Miembro bloqueado', profilePhoto: null },
+      ],
+    });
   });
 
   describe('createGroup', () => {
@@ -245,6 +292,19 @@ describe('GroupService', () => {
       expect(groupJoinRequestRepositoryMock.submit).not.toHaveBeenCalled();
     });
 
+    it('prevents joining a group with a member blocked by either user', async () => {
+      groupRepositoryMock.findByInvitationCode.mockResolvedValue(activeGroup);
+      memberRepositoryMock.findByUserAndGroup.mockResolvedValue(null);
+      userBlockRepositoryMock.hasBlockedMemberInGroup.mockResolvedValue(true);
+
+      await expect(
+        service.join({ invitationCode: 'ABC123' }, 7),
+      ).rejects.toThrow(
+        'No puedes ingresar a un grupo que incluya a una persona bloqueada.',
+      );
+      expect(groupJoinRequestRepositoryMock.submit).not.toHaveBeenCalled();
+    });
+
     it('falla si el usuario ya es miembro y no crea registros duplicados', async () => {
       groupRepositoryMock.findByInvitationCode.mockResolvedValue(activeGroup);
       memberRepositoryMock.findByUserAndGroup.mockResolvedValue({ id: 10 });
@@ -280,6 +340,17 @@ describe('GroupService', () => {
     };
 
     it('notifies the requester after an administrator accepts', async () => {
+      groupJoinRequestRepositoryMock.findPendingForAdmin.mockResolvedValue([
+        {
+          id: 22,
+          groupId: 1,
+          groupName: 'Familia',
+          requesterUserId: 7,
+          requesterName: 'Ana',
+          requesterProfilePhoto: null,
+          requestedAt: new Date(),
+        },
+      ]);
       groupJoinRequestRepositoryMock.accept.mockResolvedValue(resolvedRequest);
       notificationServiceMock.sendToUser.mockResolvedValue(undefined);
 
@@ -294,6 +365,30 @@ describe('GroupService', () => {
           data: { type: 'GROUP_JOIN_REQUEST_ACCEPTED', groupId: '1' },
         }),
       );
+    });
+
+    it('prevents accepting a request when the requester is blocked in the group', async () => {
+      groupJoinRequestRepositoryMock.findPendingForAdmin.mockResolvedValue([
+        {
+          id: 22,
+          groupId: 1,
+          groupName: 'Familia',
+          requesterUserId: 7,
+          requesterName: 'Ana',
+          requesterProfilePhoto: null,
+          requestedAt: new Date(),
+        },
+      ]);
+      userBlockRepositoryMock.hasBlockedMemberInGroup.mockResolvedValue(true);
+
+      await expect(service.acceptJoinRequest(22, 8)).rejects.toThrow(
+        'No puedes aceptar una solicitud de ingreso de una persona bloqueada.',
+      );
+
+      expect(
+        userBlockRepositoryMock.hasBlockedMemberInGroup,
+      ).toHaveBeenCalledWith(7, 1);
+      expect(groupJoinRequestRepositoryMock.accept).not.toHaveBeenCalled();
     });
 
     it('notifies the requester after an administrator rejects', async () => {

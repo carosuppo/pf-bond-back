@@ -1,0 +1,20 @@
+FROM node:22-alpine AS build
+RUN npm install -g npm@11.6.1
+WORKDIR /site
+COPY package*.json ./
+RUN npm ci
+COPY . .
+ARG PUBLIC_SITE_URL=https://srv2008002.hstgr.cloud
+ARG PUBLIC_DEVELOPER_NAME=DobleT
+ARG PUBLIC_PRIVACY_EMAIL=dobletpf@gmail.com
+ARG PUBLIC_POLICY_EFFECTIVE_DATE=
+ENV PUBLIC_SITE_URL=$PUBLIC_SITE_URL
+ENV PUBLIC_DEVELOPER_NAME=$PUBLIC_DEVELOPER_NAME
+ENV PUBLIC_PRIVACY_EMAIL=$PUBLIC_PRIVACY_EMAIL
+ENV PUBLIC_POLICY_EFFECTIVE_DATE=$PUBLIC_POLICY_EFFECTIVE_DATE
+RUN npm run build
+
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /site/dist /usr/share/nginx/html
+EXPOSE 80

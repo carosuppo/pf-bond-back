@@ -22,6 +22,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserAuthResponseDto } from './dto/user-auth-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { EMAIL_VERIFICATION_DURATION_MS } from './constants/email-verification.constants';
 import { ProfilePhotoFile } from './interface/profile-photo-file.interface';
 import {
   SessionTokenData,
@@ -29,6 +30,16 @@ import {
 } from './mapper/user-session.mapper';
 import { UserMapper } from './mapper/user.mapper';
 import { SupabaseStorageService } from './storage/supabase-storage.service';
+import { AccountDeletionService } from './service/account-deletion.service';
+import {
+  AGE_VERIFICATION_REQUIRED_MESSAGE,
+  MINIMUM_AGE_RESTRICTION_MESSAGE,
+  meetsMinimumAccountAge,
+} from './constants/minimum-account-age';
+import {
+  TERMS_ACCEPTANCE_REQUIRED_MESSAGE,
+  TERMS_OF_USE_VERSION,
+} from './constants/terms-of-use.constants';
 import type {
   EmailVerificationTokenWithUser,
   IEmailVerificationTokenRepository,
@@ -44,7 +55,6 @@ export class UserService {
     'image/webp',
   ]);
   private readonly sessionDurationInDays = 90;
-  private readonly emailVerificationDurationInHours = 24;
 
   constructor(
     @Inject('userRepository')
@@ -59,9 +69,19 @@ export class UserService {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
     private readonly supabaseStorageService: SupabaseStorageService,
+    private readonly accountDeletionService: AccountDeletionService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<MessageResponseDto> {
+    if (!meetsMinimumAccountAge(createUserDto.birthDate)) {
+      throw new ForbiddenException(MINIMUM_AGE_RESTRICTION_MESSAGE);
+    }
+    if (createUserDto.termsVersion !== TERMS_OF_USE_VERSION) {
+      throw new ForbiddenException(TERMS_ACCEPTANCE_REQUIRED_MESSAGE);
+    }
+
+    const ageVerifiedAt = new Date();
+    const termsAcceptedAt = new Date();
     try {
       const passwordHash: string = await bcrypt.hash(
         createUserDto.password,
@@ -71,6 +91,8 @@ export class UserService {
       const createUserData = UserMapper.toCreateUserData(
         createUserDto,
         passwordHash,
+        ageVerifiedAt,
+        termsAcceptedAt,
       );
 
       const createdUser = await this.userRepository.create(createUserData);
@@ -129,6 +151,16 @@ export class UserService {
       );
     }
 
+    if (!verificationToken.user.ageVerifiedAt) {
+      throw new ForbiddenException(AGE_VERIFICATION_REQUIRED_MESSAGE);
+    }
+    if (
+      !verificationToken.user.termsAcceptedAt ||
+      verificationToken.user.termsAcceptedVersion !== TERMS_OF_USE_VERSION
+    ) {
+      throw new ForbiddenException(TERMS_ACCEPTANCE_REQUIRED_MESSAGE);
+    }
+
     const session = await this.createSession(verificationToken.userId);
     return UserMapper.toAuthResponseDto(verificationToken.user, session);
   }
@@ -148,22 +180,6 @@ export class UserService {
       message:
         'Si el correo existe y no está verificado, se enviará un nuevo mail.',
     };
-  }
-
-  async findAll(): Promise<UserResponseDto[]> {
-    const users = await this.userRepository.findAll();
-
-    return users.map((user) => UserMapper.toResponseDto(user));
-  }
-
-  async findByEmail(email: string): Promise<UserResponseDto> {
-    const user = await this.userRepository.findByEmail(email);
-
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado.');
-    }
-
-    return UserMapper.toResponseDto(user);
   }
 
   async getProfile(userId: number): Promise<UserResponseDto> {
@@ -337,6 +353,31 @@ export class UserService {
       );
     }
 
+    if (!user.ageVerifiedAt) {
+      if (!loginUserDto.birthDate) {
+        throw new ForbiddenException(AGE_VERIFICATION_REQUIRED_MESSAGE);
+      }
+      if (!meetsMinimumAccountAge(loginUserDto.birthDate)) {
+        await this.accountDeletionService.deleteAccount(user.id);
+        throw new ForbiddenException(MINIMUM_AGE_RESTRICTION_MESSAGE);
+      }
+      await this.userRepository.markAgeVerified(user.id, new Date());
+    }
+
+    if (
+      !user.termsAcceptedAt ||
+      user.termsAcceptedVersion !== TERMS_OF_USE_VERSION
+    ) {
+      if (loginUserDto.termsVersion !== TERMS_OF_USE_VERSION) {
+        throw new ForbiddenException(TERMS_ACCEPTANCE_REQUIRED_MESSAGE);
+      }
+      await this.userRepository.markTermsAccepted(
+        user.id,
+        new Date(),
+        TERMS_OF_USE_VERSION,
+      );
+    }
+
     const session = await this.createSession(user.id);
 
     return UserMapper.toAuthResponseDto(user, session);
@@ -373,10 +414,7 @@ export class UserService {
     const token = randomBytes(48).toString('base64url');
     const tokenHash = this.hashToken(token);
 
-    const expiresAt = new Date();
-    expiresAt.setHours(
-      expiresAt.getHours() + this.emailVerificationDurationInHours,
-    );
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_DURATION_MS);
 
     await this.emailVerificationTokenRepository.create({
       userId: user.id,

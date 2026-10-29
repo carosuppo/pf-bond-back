@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { logErrorSafely } from '../../common/logging/error-logging';
+import { AGE_VERIFICATION_REQUIRED_MESSAGE } from '../constants/minimum-account-age';
+import {
+  TERMS_ACCEPTANCE_REQUIRED_MESSAGE,
+  TERMS_OF_USE_VERSION,
+} from '../constants/terms-of-use.constants';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { UserMapper } from '../mapper/user.mapper';
 import type {
@@ -49,6 +54,19 @@ export class SessionAuthenticationService {
     if (!session) {
       throw new UnauthorizedException('Invalid session.');
     }
+
+    if (!session.user.ageVerifiedAt) {
+      await this.userSessionRepository.revokeById(session.id);
+      throw new UnauthorizedException(AGE_VERIFICATION_REQUIRED_MESSAGE);
+    }
+    if (
+      !session.user.termsAcceptedAt ||
+      session.user.termsAcceptedVersion !== TERMS_OF_USE_VERSION
+    ) {
+      await this.userSessionRepository.revokeById(session.id);
+      throw new UnauthorizedException(TERMS_ACCEPTANCE_REQUIRED_MESSAGE);
+    }
+
     return {
       sessionId: session.id,
       user: UserMapper.toResponseDto(session.user),

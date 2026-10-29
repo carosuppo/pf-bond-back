@@ -6,13 +6,19 @@ import { UpdateUserData } from '../interface/update-user.interface';
 export interface IUserRepository {
   create(createUserData: CreateUserData): Promise<User>;
 
-  findAll(): Promise<User[]>;
-
   findByEmail(email: string): Promise<User | null>;
 
   findById(userId: number): Promise<User | null>;
 
   markEmailAsVerified(userId: number): Promise<User>;
+
+  markAgeVerified(userId: number, verifiedAt: Date): Promise<User>;
+
+  markTermsAccepted(
+    userId: number,
+    acceptedAt: Date,
+    termsVersion: string,
+  ): Promise<User>;
 
   findGroupsByUserId(userId: number): Promise<UserProfileGroupEntity[]>;
 

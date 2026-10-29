@@ -24,6 +24,7 @@ import { PointOfInterestModule } from './point-of-interest/point-of-interest.mod
 import { PrismaModule } from './prisma/prisma.module';
 import { RoutingModule } from './routing/routing.module';
 import { SecurityMonitoringModule } from './security-monitoring/security-monitoring.module';
+import { UnverifiedAccountRetentionScheduler } from './user/service/unverified-account-retention.scheduler';
 import { UserModule } from './user/user.module';
 
 @Module({
@@ -54,6 +55,7 @@ import { UserModule } from './user/user.module';
     ActivityService,
     OperationalAlertService,
     PersistentLogShutdownService,
+    UnverifiedAccountRetentionScheduler,
     {
       provide: APP_INTERCEPTOR,
       useClass: OperationalLoggingInterceptor,

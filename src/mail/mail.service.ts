@@ -25,6 +25,19 @@ export interface OperationalAlertEmailData {
   errorCode?: string;
 }
 
+export interface UserContentReportEmailData {
+  reportId: string;
+  reporterUserId: number;
+  reporterEmail: string;
+  reportedUserId: number;
+  reportedUserName: string;
+  memberId: number;
+  groupId: number;
+  reason: string;
+  details: string | null;
+  reportedAt: Date;
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -90,6 +103,39 @@ export class MailService {
       logErrorSafely(
         this.logger,
         'operation=sendEmailVerification provider=SMTP outcome=error',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async sendAccountDeletionConfirmation(
+    to: string,
+    name: string,
+    confirmationUrl: string,
+  ): Promise<void> {
+    const safeName = this.escapeHtml(name);
+    const safeUrl = this.escapeHtml(confirmationUrl);
+    try {
+      await this.transporter.sendMail({
+        from: this.mailFrom,
+        to,
+        subject: 'Confirmá la eliminación de tu cuenta Bond',
+        text: `Hola ${name}. Para confirmar la eliminación de tu cuenta Bond, abrí este enlace: ${confirmationUrl}. Si no solicitaste la eliminación, ignorá este correo.`,
+        html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2>Confirmá la eliminación de tu cuenta Bond</h2>
+          <p>Hola ${safeName},</p>
+          <p>Para eliminar tu cuenta y los datos personales asociados, confirmá la solicitud:</p>
+          <p><a href="${safeUrl}">Confirmar eliminación</a></p>
+          <p>Si no solicitaste la eliminación, ignorá este correo.</p>
+        </div>
+      `,
+      });
+    } catch (error: unknown) {
+      logErrorSafely(
+        this.logger,
+        'operation=sendAccountDeletionConfirmation provider=SMTP outcome=error',
         error,
       );
       throw error;
@@ -189,6 +235,65 @@ export class MailService {
       logErrorSafely(
         this.logger,
         'operation=sendOperationalAlert provider=SMTP outcome=error',
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async sendUserContentReport(
+    to: string,
+    report: UserContentReportEmailData,
+  ): Promise<void> {
+    const fields = {
+      reportId: this.escapeHtml(report.reportId),
+      reporterUserId: report.reporterUserId.toString(),
+      reporterEmail: this.escapeHtml(report.reporterEmail),
+      reportedUserId: report.reportedUserId.toString(),
+      reportedUserName: this.escapeHtml(report.reportedUserName),
+      memberId: report.memberId.toString(),
+      groupId: report.groupId.toString(),
+      reason: this.escapeHtml(report.reason),
+      details: this.escapeHtml(report.details ?? 'Sin detalles adicionales.'),
+      reportedAt: this.escapeHtml(report.reportedAt.toISOString()),
+    };
+    const text = [
+      `Denuncia de usuario en Bond: ${fields.reportId}`,
+      `Denunciante: ${fields.reporterEmail} (usuario ${fields.reporterUserId})`,
+      `Usuario denunciado: ${fields.reportedUserName} (usuario ${fields.reportedUserId})`,
+      `Miembro: ${fields.memberId}`,
+      `Grupo: ${fields.groupId}`,
+      `Motivo: ${fields.reason}`,
+      `Fecha: ${fields.reportedAt}`,
+      `Detalles: ${fields.details}`,
+    ].join('\n');
+
+    try {
+      await this.transporter.sendMail({
+        from: this.mailFrom,
+        to,
+        subject: `[Bond] Denuncia de usuario ${fields.reportId}`,
+        text,
+        html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2>Denuncia de usuario en Bond</h2>
+          <ul>
+            <li><strong>Referencia:</strong> ${fields.reportId}</li>
+            <li><strong>Denunciante:</strong> ${fields.reporterEmail} (usuario ${fields.reporterUserId})</li>
+            <li><strong>Usuario denunciado:</strong> ${fields.reportedUserName} (usuario ${fields.reportedUserId})</li>
+            <li><strong>Miembro:</strong> ${fields.memberId}</li>
+            <li><strong>Grupo:</strong> ${fields.groupId}</li>
+            <li><strong>Motivo:</strong> ${fields.reason}</li>
+            <li><strong>Fecha:</strong> ${fields.reportedAt}</li>
+          </ul>
+          <p><strong>Detalles:</strong> ${fields.details}</p>
+        </div>
+      `,
+      });
+    } catch (error: unknown) {
+      logErrorSafely(
+        this.logger,
+        'operation=sendUserContentReport provider=SMTP outcome=error',
         error,
       );
       throw error;

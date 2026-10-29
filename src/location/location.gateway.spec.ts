@@ -4,6 +4,7 @@ import { GroupEventService } from '../group/group-event.service';
 import { LocationGateway } from './location.gateway';
 import { LocationService } from './location.service';
 import { SessionAuthenticationService } from '../user/service/session-authentication.service';
+import type { IUserBlockRepository } from '../member/repository/user-block.repository.interface';
 
 describe('LocationGateway', () => {
   const makeClient = () => {
@@ -57,6 +58,74 @@ describe('LocationGateway', () => {
     expect(send).toHaveBeenCalledWith(
       expect.stringContaining('groupSubscribed'),
     );
+  });
+
+  it('does not broadcast a blocked member location to either blocked user', async () => {
+    const authenticationService = {
+      authenticate: jest
+        .fn()
+        .mockResolvedValueOnce({ sessionId: 1, user: { id: 7 } })
+        .mockResolvedValueOnce({ sessionId: 2, user: { id: 8 } }),
+    } as unknown as SessionAuthenticationService;
+    const locationService = {
+      verifyGroupMembership: jest.fn().mockResolvedValue(undefined),
+    } as unknown as LocationService;
+    const userBlockRepository = {
+      findMutuallyBlockedUserIds: jest.fn((userId: number) =>
+        Promise.resolve(userId === 7 ? [8] : userId === 8 ? [7] : []),
+      ),
+    } as unknown as IUserBlockRepository;
+    const events = new GroupEventService();
+    const gateway = new LocationGateway(
+      authenticationService,
+      locationService,
+      events,
+      userBlockRepository,
+    );
+    const first = makeClient();
+    const second = makeClient();
+    gateway.onModuleInit();
+
+    await gateway.authenticate(first.client, { sessionToken: 'first' });
+    await gateway.authenticate(second.client, { sessionToken: 'second' });
+    await gateway.subscribeGroup(first.client, { groupId: 3 });
+    await gateway.subscribeGroup(second.client, { groupId: 3 });
+
+    events.publish({
+      event: 'memberLocationUpdated',
+      data: {
+        groupId: 3,
+        actorUserId: 7,
+        memberId: 70,
+        userId: 7,
+        name: 'Persona bloqueada',
+        profilePhoto: null,
+        latitude: 1,
+        longitude: 2,
+        accuracy: null,
+        capturedAt: new Date(),
+        lastSeenAt: new Date(),
+      },
+    });
+
+    expect(second.send.mock.calls.flat().join(' ')).not.toContain(
+      'memberLocationUpdated',
+    );
+    expect(first.send.mock.calls.flat().join(' ')).not.toContain(
+      'memberLocationUpdated',
+    );
+    gateway.notifyUserBlockChanged({
+      blockerUserId: 7,
+      blockedUserId: 8,
+      isBlocked: true,
+    });
+    expect(first.send.mock.calls.flat().join(' ')).toContain(
+      'memberVisibilityChanged',
+    );
+    expect(second.send.mock.calls.flat().join(' ')).toContain(
+      'memberVisibilityChanged',
+    );
+    gateway.onModuleDestroy();
   });
 
   it('logs authentication infrastructure failures without logging the session token', async () => {
