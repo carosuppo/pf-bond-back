@@ -19,7 +19,7 @@ export interface IEmailVerificationTokenRepository {
     tokenHash: string,
   ): Promise<EmailVerificationTokenWithUser | null>;
 
-  markAsUsed(tokenId: number): Promise<void>;
+  markAsUsed(tokenId: number): Promise<boolean>;
 
   invalidateActiveByUserId(userId: number): Promise<void>;
 }

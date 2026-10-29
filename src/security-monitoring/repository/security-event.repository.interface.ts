@@ -26,6 +26,7 @@ export interface SecurityAlertReservation {
 
 export interface ISecurityEventRepository {
   createEvent(event: SecurityEventData): Promise<void>;
+  deleteOlderThan(createdBefore: Date): Promise<void>;
   countRecentAuthenticationFailures(
     identifierHash: string,
     since: Date,

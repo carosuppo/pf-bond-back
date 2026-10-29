@@ -1,11 +1,14 @@
 import {
   IsEmail,
+  IsDateString,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   Length,
   Matches,
 } from 'class-validator';
+import { TERMS_OF_USE_VERSION } from '../constants/terms-of-use.constants';
 
 export class CreateUserDto {
   @IsString()
@@ -22,6 +25,10 @@ export class CreateUserDto {
   @IsNotEmpty()
   email!: string;
 
+  @IsDateString({ strict: true })
+  @IsNotEmpty()
+  birthDate!: string;
+
   @IsOptional()
   @IsString()
   @Length(8, 30)
@@ -34,4 +41,8 @@ export class CreateUserDto {
   @IsNotEmpty()
   @Length(8, 16)
   password!: string;
+
+  @IsString()
+  @IsIn([TERMS_OF_USE_VERSION])
+  termsVersion!: string;
 }

@@ -1,0 +1,65 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const developerName = import.meta.env.PUBLIC_DEVELOPER_NAME?.trim() || 'DobleT';
+const privacyEmail =
+  import.meta.env.PUBLIC_PRIVACY_EMAIL?.trim() || 'dobletpf@gmail.com';
+---
+
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0c1014" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/png" href={`${base}bond-icon.png`} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href={base} aria-label="Bond, inicio">
+        <img
+          class="brand-icon"
+          src={`${base}bond-icon.png`}
+          width="36"
+          height="36"
+          alt=""
+        />
+        <span>Bond</span>
+      </a>
+      <nav aria-label="Navegación principal">
+        <a href={`${base}privacy/`}>Privacidad</a>
+        <a href={`${base}account-deletion/`}>Guía de eliminación</a>
+        <a href={`${base}terms/`}>Términos de uso</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div>
+        <a class="footer-brand" href={base}>Bond</a>
+        <p>Privacidad y control de datos de la aplicación Bond.</p>
+      </div>
+      <div class="footer-meta">
+        <span>{developerName || 'Responsable: pendiente de confirmar'}</span>
+        {
+          privacyEmail ? (
+            <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>
+          ) : (
+            <span>Contacto de privacidad: pendiente de confirmar</span>
+          )
+        }
+      </div>
+    </footer>
+  </body>
+</html>

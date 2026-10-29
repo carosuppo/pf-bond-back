@@ -16,6 +16,17 @@ export class SecurityEventPrismaRepository implements ISecurityEventRepository {
     await this.prisma.securityEvent.create({ data: event });
   }
 
+  async deleteOlderThan(createdBefore: Date): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.securityEvent.deleteMany({
+        where: { createdAt: { lt: createdBefore } },
+      });
+      await transaction.securityAlert.deleteMany({
+        where: { createdAt: { lt: createdBefore } },
+      });
+    });
+  }
+
   countRecentAuthenticationFailures(
     identifierHash: string,
     since: Date,

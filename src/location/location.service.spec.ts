@@ -4,6 +4,7 @@ import { GroupEventService } from '../group/group-event.service';
 import { LocationService } from './location.service';
 import type { ILocationRepository } from './repository/location.repository.interface';
 import { SharingRecord } from './interface/location-record.interface';
+import type { IUserBlockRepository } from '../member/repository/user-block.repository.interface';
 
 describe('LocationService', () => {
   let service: LocationService;
@@ -92,6 +93,65 @@ describe('LocationService', () => {
       service.updateGroupSharing(1, 20, false),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(repository.updateMemberSharing.mock.calls).toHaveLength(0);
+  });
+
+  it('hides mutually blocked users from the visible group locations', async () => {
+    repository.findSharingByUserAndGroup.mockResolvedValue(sharing);
+    const capturedAt = new Date('2026-10-01T10:00:00.000Z');
+    const lastSeenAt = new Date('2026-10-01T10:01:00.000Z');
+    repository.findVisibleMembers.mockResolvedValue([
+      {
+        memberId: 10,
+        userId: 1,
+        name: 'Alice',
+        profilePhoto: null,
+        location: {
+          latitude: -34.6,
+          longitude: -58.4,
+          accuracy: null,
+          capturedAt,
+          lastSeenAt,
+        },
+      },
+      {
+        memberId: 11,
+        userId: 2,
+        name: 'Persona bloqueada',
+        profilePhoto: 'foto.png',
+        location: {
+          latitude: -34.7,
+          longitude: -58.5,
+          accuracy: null,
+          capturedAt,
+          lastSeenAt,
+        },
+      },
+    ]);
+    const userBlockRepository = {
+      findMutuallyBlockedUserIds: jest.fn().mockResolvedValue([2]),
+    } as unknown as IUserBlockRepository;
+    const blockAwareService = new LocationService(
+      repository,
+      events,
+      {
+        evaluate: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PointOfInterestPresenceService,
+      userBlockRepository,
+    );
+
+    await expect(blockAwareService.getGroupMembers(1, 20)).resolves.toEqual([
+      {
+        memberId: 10,
+        userId: 1,
+        name: 'Alice',
+        profilePhoto: null,
+        latitude: -34.6,
+        longitude: -58.4,
+        accuracy: null,
+        capturedAt,
+        lastSeenAt,
+      },
+    ]);
   });
 
   it('emits removal when sharing is disabled', async () => {

@@ -19,8 +19,12 @@ describe('GroupPrismaRepository', () => {
       },
       member: {
         findUnique: jest.fn().mockResolvedValue({ id: 12 }),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(2),
       },
+      user: { findUnique: jest.fn().mockResolvedValue({ locationId: null }) },
+      location: { deleteMany: jest.fn() },
     };
     const memberRepository = {
       deleteMember: jest.fn().mockResolvedValue({ id: 12 }),
@@ -59,9 +63,13 @@ describe('GroupPrismaRepository', () => {
       },
       member: {
         findUnique: jest.fn().mockResolvedValue({ id: 12 }),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([{ userId: 8 }]),
         count: jest.fn().mockResolvedValue(1),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      user: { findUnique: jest.fn().mockResolvedValue({ locationId: null }) },
+      location: { deleteMany: jest.fn() },
     };
     const memberRepository = { deleteMember: jest.fn() };
     const prisma = {
@@ -100,6 +108,7 @@ describe('GroupPrismaRepository', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         count: jest.fn(),
         deleteMany: jest.fn(),
+        findMany: jest.fn(),
       },
     };
     const memberRepository = { deleteMember: jest.fn() };
@@ -135,6 +144,7 @@ describe('GroupPrismaRepository', () => {
       },
       member: {
         deleteMany,
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
     const prisma = {
@@ -170,6 +180,7 @@ describe('GroupPrismaRepository', () => {
       },
       member: {
         deleteMany,
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
     const prisma = {

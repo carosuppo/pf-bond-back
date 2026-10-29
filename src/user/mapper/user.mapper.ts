@@ -12,11 +12,16 @@ export class UserMapper {
   static toCreateUserData(
     createUserDto: CreateUserDto,
     passwordHash: string,
+    ageVerifiedAt: Date,
+    termsAcceptedAt: Date,
   ): CreateUserData {
     return {
       name: createUserDto.name,
       email: createUserDto.email,
       passwordHash,
+      ageVerifiedAt,
+      termsAcceptedAt,
+      termsAcceptedVersion: createUserDto.termsVersion,
     };
   }
 

@@ -43,3 +43,4 @@ backup/.env
 
 # Prisma generated files if not committed
 /generated/prisma
+legal-web

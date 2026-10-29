@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { GetGroupEntity } from '../entity/get-group.entity';
 import { CreateGroupData } from '../interface/create-group.interface';
 import { UpdateGroupData } from '../interface/update-group.interface';
+import { clearLocationIfUnshared } from '../../location/repository/clear-location-if-unshared';
 import type {
   IGroupRepository,
   LeaveGroupResult,
@@ -112,6 +113,13 @@ export class GroupPrismaRepository implements IGroupRepository {
         await tx.pointOfInterestPresence.deleteMany({
           where: { member: { groupId: id, locationSharingEnabled: false } },
         });
+        const members = await tx.member.findMany({
+          where: { groupId: id },
+          select: { userId: true },
+        });
+        for (const member of members) {
+          await clearLocationIfUnshared(tx, member.userId);
+        }
       }
       return group;
     });
@@ -156,6 +164,7 @@ export class GroupPrismaRepository implements IGroupRepository {
         }
 
         await this.memberRepository.deleteMember(member.id, tx);
+        await clearLocationIfUnshared(tx, userId);
 
         return { status: 'left', memberId: member.id };
       },
@@ -173,6 +182,10 @@ export class GroupPrismaRepository implements IGroupRepository {
     id: number,
     tx: Prisma.TransactionClient,
   ): Promise<boolean> {
+    const members = await tx.member.findMany({
+      where: { groupId: id },
+      select: { userId: true },
+    });
     const result = await tx.group.updateMany({
       where: { id, deletedAt: null },
       data: { deletedAt: new Date() },
@@ -183,6 +196,9 @@ export class GroupPrismaRepository implements IGroupRepository {
     }
 
     await tx.member.deleteMany({ where: { groupId: id } });
+    for (const member of members) {
+      await clearLocationIfUnshared(tx, member.userId);
+    }
     return true;
   }
 

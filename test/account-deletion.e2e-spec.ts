@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { Test } from '@nestjs/testing';
-import { RoleEnum } from '@prisma/client';
+import { RoleEnum, SecurityAlertType, SecurityEventType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
 import request from 'supertest';
@@ -11,7 +11,9 @@ import { WebSocket } from 'ws';
 import { LocationModule } from '../src/location/location.module';
 import { MailService } from '../src/mail/mail.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { TERMS_OF_USE_VERSION } from '../src/user/constants/terms-of-use.constants';
 import { PrismaModule } from '../src/prisma/prisma.module';
+import { AccountDeletionRequestService } from '../src/user/service/account-deletion-request.service';
 import { UserModule } from '../src/user/user.module';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -23,8 +25,12 @@ describe('DELETE /user/me (PostgreSQL)', () => {
   const sendVerification = jest
     .fn<Promise<void>, [string, string, string]>()
     .mockResolvedValue(undefined);
+  const sendDeletionConfirmation = jest
+    .fn<Promise<void>, [string, string, string]>()
+    .mockResolvedValue(undefined);
   const password = 'clave123456';
   let passwordHash: string;
+  let accountDeletionRequestService: AccountDeletionRequestService;
 
   beforeAll(async () => {
     if (!runDatabaseTests) return;
@@ -44,15 +50,21 @@ describe('DELETE /user/me (PostgreSQL)', () => {
       ],
     })
       .overrideProvider(MailService)
-      .useValue({ sendEmailVerification: sendVerification })
+      .useValue({
+        sendEmailVerification: sendVerification,
+        sendAccountDeletionConfirmation: sendDeletionConfirmation,
+      })
       .compile();
     app = module.createNestApplication({ logger: false });
     app.useWebSocketAdapter(new WsAdapter(app));
     await app.listen(0, '127.0.0.1');
     prisma = module.get(PrismaService);
+    accountDeletionRequestService = module.get(AccountDeletionRequestService);
   });
 
   async function clearDatabase(): Promise<void> {
+    await prisma.securityEvent.deleteMany();
+    await prisma.securityAlert.deleteMany();
     await prisma.event.deleteMany();
     await prisma.reminder.deleteMany();
     await prisma.pointOfInterest.deleteMany();
@@ -66,6 +78,7 @@ describe('DELETE /user/me (PostgreSQL)', () => {
     if (runDatabaseTests) {
       await clearDatabase();
       sendVerification.mockClear();
+      sendDeletionConfirmation.mockClear();
     }
   });
   afterAll(async () => {
@@ -82,6 +95,9 @@ describe('DELETE /user/me (PostgreSQL)', () => {
         email: `${name}-${randomUUID()}@bond.test`,
         passwordHash,
         emailVerifiedAt: new Date(),
+        ageVerifiedAt: new Date(),
+        termsAcceptedAt: new Date(),
+        termsAcceptedVersion: TERMS_OF_USE_VERSION,
       },
     });
   }
@@ -135,6 +151,46 @@ describe('DELETE /user/me (PostgreSQL)', () => {
           token: randomUUID(),
           platform: 'android',
         },
+      });
+      const emailHash = createHash('sha256')
+        .update(target.email.trim().toLowerCase())
+        .digest('hex');
+      await prisma.securityEvent.createMany({
+        data: [
+          {
+            type: SecurityEventType.AUTH_LOGIN_FAILED,
+            ip: '192.0.2.1',
+            userId: target.id,
+            identifierHash: emailHash,
+            method: 'POST',
+            path: '/user/login',
+            statusCode: 401,
+          },
+          {
+            type: SecurityEventType.LOCATION_UNAUTHORIZED,
+            ip: '192.0.2.2',
+            userId: target.id,
+            method: 'GET',
+            path: '/location/current',
+            statusCode: 401,
+          },
+        ],
+      });
+      await prisma.securityAlert.createMany({
+        data: [
+          {
+            type: SecurityAlertType.AUTH_LOGIN_FAILED,
+            correlationKey: `AUTH_LOGIN_FAILED:${emailHash}`,
+            eventCount: 5,
+            windowSeconds: 300,
+          },
+          {
+            type: SecurityAlertType.LOCATION_ACCESS_DENIED,
+            correlationKey: `LOCATION_ACCESS_DENIED:user:${target.id}`,
+            eventCount: 5,
+            windowSeconds: 300,
+          },
+        ],
       });
 
       const memberGroup = await createGroup('member');
@@ -319,6 +375,26 @@ describe('DELETE /user/me (PostgreSQL)', () => {
       ).toBe(0);
       expect(
         await prisma.devicePushToken.count({ where: { userId: target.id } }),
+      ).toBe(0);
+      expect(
+        await prisma.securityEvent.count({ where: { userId: target.id } }),
+      ).toBe(0);
+      expect(
+        await prisma.securityEvent.count({
+          where: { identifierHash: emailHash },
+        }),
+      ).toBe(0);
+      expect(
+        await prisma.securityAlert.count({
+          where: {
+            correlationKey: {
+              in: [
+                `AUTH_LOGIN_FAILED:${emailHash}`,
+                `LOCATION_ACCESS_DENIED:user:${target.id}`,
+              ],
+            },
+          },
+        }),
       ).toBe(0);
       expect(
         await prisma.location.count({
@@ -526,7 +602,13 @@ describe('DELETE /user/me (PostgreSQL)', () => {
       const email = `registro-${randomUUID()}@bond.test`;
       await request(app.getHttpServer())
         .post('/user')
-        .send({ name: 'Registro', email, password })
+        .send({
+          name: 'Registro',
+          email,
+          password,
+          birthDate: '2000-01-01',
+          termsVersion: '2026-10-30',
+        })
         .expect(201);
       const user = await prisma.user.findUniqueOrThrow({ where: { email } });
       expect(user.passwordHash).not.toBe(password);
@@ -534,16 +616,28 @@ describe('DELETE /user/me (PostgreSQL)', () => {
       expect(sendVerification).toHaveBeenCalledTimes(1);
       await request(app.getHttpServer())
         .post('/user/resend-verification-email')
-        .send({ email })
+        .send({ email: email.toUpperCase() })
         .expect(200);
       expect(sendVerification).toHaveBeenCalledTimes(2);
       const verificationUrl = sendVerification.mock.calls[1][2];
       const token = new URL(verificationUrl).searchParams.get('token');
       expect(token).toBeTruthy();
-      await request(app.getHttpServer())
+      const verificationRedirect = await request(app.getHttpServer())
         .get('/user/verify-email')
         .query({ token })
+        .expect(302);
+      expect(verificationRedirect.headers.location).toBe(
+        `bond://verify-email?token=${encodeURIComponent(token!)}`,
+      );
+      const verificationSession = await request(app.getHttpServer())
+        .post('/user/verify-email-session')
+        .send({ token })
         .expect(200);
+      expect(verificationSession.body).toHaveProperty('sessionToken');
+      await request(app.getHttpServer())
+        .post('/user/verify-email-session')
+        .send({ token })
+        .expect(400);
       expect(
         (await prisma.user.findUniqueOrThrow({ where: { email } }))
           .emailVerifiedAt,
@@ -554,7 +648,13 @@ describe('DELETE /user/me (PostgreSQL)', () => {
         .expect(200);
       await request(app.getHttpServer())
         .post('/user')
-        .send({ name: 'Duplicado', email, password })
+        .send({
+          name: 'Duplicado',
+          email,
+          password,
+          birthDate: '2000-01-01',
+          termsVersion: '2026-10-30',
+        })
         .expect(409);
     },
   );
@@ -563,7 +663,13 @@ describe('DELETE /user/me (PostgreSQL)', () => {
     const email = `sin-grupos-${randomUUID()}@bond.test`;
     await request(app.getHttpServer())
       .post('/user')
-      .send({ name: 'Sin grupos', email, password })
+      .send({
+        name: 'Sin grupos',
+        email,
+        password,
+        birthDate: '2000-01-01',
+        termsVersion: '2026-10-30',
+      })
       .expect(201);
     const verificationUrl = sendVerification.mock.calls[0][2];
     const verificationToken = new URL(verificationUrl).searchParams.get(
@@ -573,7 +679,7 @@ describe('DELETE /user/me (PostgreSQL)', () => {
     await request(app.getHttpServer())
       .get('/user/verify-email')
       .query({ token: verificationToken })
-      .expect(200);
+      .expect(302);
     const login = await request(app.getHttpServer())
       .post('/user/login')
       .send({ email, password })
@@ -596,4 +702,92 @@ describe('DELETE /user/me (PostgreSQL)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(401);
   });
+
+  testDb(
+    'elimina una cuenta sin sesión mediante confirmación por correo',
+    async () => {
+      const email = `web-delete-${randomUUID()}@bond.test`;
+      await request(app.getHttpServer())
+        .post('/user')
+        .send({
+          name: 'Web delete',
+          email,
+          password,
+          birthDate: '2000-01-01',
+          termsVersion: '2026-10-30',
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post('/user/account-deletion-requests')
+        .send({ email: email.toUpperCase() })
+        .expect(200);
+      expect(sendDeletionConfirmation).toHaveBeenCalledTimes(1);
+      const confirmationUrl = new URL(
+        sendDeletionConfirmation.mock.calls[0][2],
+      );
+      const token = confirmationUrl.hash.slice(1);
+      expect(token).toHaveLength(43);
+
+      await request(app.getHttpServer())
+        .post('/user/account-deletion-requests/confirm')
+        .send({ token })
+        .expect(204);
+      expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
+      await request(app.getHttpServer())
+        .post('/user/account-deletion-requests/confirm')
+        .send({ token })
+        .expect(400);
+    },
+  );
+
+  testDb(
+    'elimina cuentas sin verificar al vencer el último enlace',
+    async () => {
+      const expiredEmail = `expired-${randomUUID()}@bond.test`;
+      const activeEmail = `active-${randomUUID()}@bond.test`;
+      const createdAt = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const expiredUser = await prisma.user.create({
+        data: {
+          name: 'Expired verification',
+          email: expiredEmail,
+          passwordHash,
+          emailVerifiedAt: null,
+          createdAt,
+        },
+      });
+      const activeUser = await prisma.user.create({
+        data: {
+          name: 'Active verification',
+          email: activeEmail,
+          passwordHash,
+          emailVerifiedAt: null,
+          createdAt,
+        },
+      });
+      await prisma.emailVerificationToken.createMany({
+        data: [
+          {
+            userId: expiredUser.id,
+            tokenHash: randomUUID(),
+            expiresAt: new Date(Date.now() - 1000),
+          },
+          {
+            userId: activeUser.id,
+            tokenHash: randomUUID(),
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          },
+        ],
+      });
+
+      await accountDeletionRequestService.purgeExpiredUnverifiedAccounts();
+
+      expect(
+        await prisma.user.findUnique({ where: { id: expiredUser.id } }),
+      ).toBeNull();
+      expect(
+        await prisma.user.findUnique({ where: { id: activeUser.id } }),
+      ).not.toBeNull();
+    },
+  );
 });

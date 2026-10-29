@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, RoleEnum } from '@prisma/client';
 import type { MessageResponseDto } from '../user/dto/message-response.dto';
@@ -11,12 +12,16 @@ import { GetMemberInfoResponseDto } from './dto/get-member-info-response.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { MemberMapper } from './mapper/member.mapper';
 import type { IMemberRepository } from './repository/member.repository.interface';
+import type { IUserBlockRepository } from './repository/user-block.repository.interface';
 
 @Injectable()
 export class MemberService {
   constructor(
     @Inject('memberRepository')
     private readonly memberRepository: IMemberRepository,
+    @Optional()
+    @Inject('userBlockRepository')
+    private readonly userBlockRepository?: IUserBlockRepository,
   ) {}
   async addMember(
     addMemberDto: AddMemberDto,
@@ -44,6 +49,19 @@ export class MemberService {
 
     if (!membership) {
       throw new ForbiddenException('No perteneces a este grupo.');
+    }
+
+    if (this.userBlockRepository) {
+      const memberRecord = await this.memberRepository.findById(memberId);
+      if (
+        memberRecord &&
+        (await this.userBlockRepository.hasBlockBetween(
+          requesterUserId,
+          memberRecord.userId,
+        ))
+      ) {
+        throw new NotFoundException('El miembro no existe.');
+      }
     }
 
     return MemberMapper.toGetMemberInfoResponse(member);

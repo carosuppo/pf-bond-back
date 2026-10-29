@@ -6,6 +6,7 @@ import {
   SharingRecord,
   VisibleMemberLocationRecord,
 } from '../interface/location-record.interface';
+import { clearLocationIfUnshared } from './clear-location-if-unshared';
 import { ILocationRepository } from './location.repository.interface';
 
 @Injectable()
@@ -141,6 +142,7 @@ export class LocationPrismaRepository implements ILocationRepository {
       });
       if (!enabled && !member.group.shareLocationMandatorily) {
         await tx.pointOfInterestPresence.deleteMany({ where: { memberId } });
+        await clearLocationIfUnshared(tx, member.userId);
       }
     });
   }

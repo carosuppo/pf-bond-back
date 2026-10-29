@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MailModule } from '../mail/mail.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SecurityEventPrismaRepository } from './repository/security-event.prisma.repository';
+import { SecurityEventRetentionScheduler } from './security-event-retention.scheduler';
 import { SecurityAlertService } from './security-alert.service';
 import { SecurityMonitoringConfig } from './security-monitoring.config';
 import { SecurityMonitoringMiddleware } from './security-monitoring.middleware';
@@ -20,6 +21,7 @@ import { SecurityMonitoringService } from './security-monitoring.service';
     SecurityAlertService,
     SecurityMonitoringService,
     SecurityMonitoringMiddleware,
+    SecurityEventRetentionScheduler,
     {
       provide: 'securityEventRepository',
       useClass: SecurityEventPrismaRepository,

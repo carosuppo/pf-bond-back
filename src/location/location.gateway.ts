@@ -1,6 +1,8 @@
 import {
   ForbiddenException,
+  Inject,
   Logger,
+  Optional,
   OnModuleDestroy,
   OnModuleInit,
   UnauthorizedException,
@@ -13,6 +15,9 @@ import {
 } from '@nestjs/websockets';
 import { Subscription } from 'rxjs';
 import { OnEvent } from '@nestjs/event-emitter';
+import { USER_BLOCK_CHANGED_EVENT } from '../member/service/user-block.service';
+import type { UserBlockChangedEvent } from '../member/service/user-block.service';
+import type { IUserBlockRepository } from '../member/repository/user-block.repository.interface';
 import { WebSocket } from 'ws';
 import { logErrorSafely } from '../common/logging/error-logging';
 import { GroupEvent, GroupEventService } from '../group/group-event.service';
@@ -42,6 +47,8 @@ export class LocationGateway
 
   private readonly authenticatedUsers = new Map<WebSocket, number>();
 
+  private readonly blockedUserIdsByClient = new Map<WebSocket, Set<number>>();
+
   private readonly groupSubscriptions = new Map<number, Set<WebSocket>>();
 
   private eventSubscription?: Subscription;
@@ -52,6 +59,10 @@ export class LocationGateway
     private readonly locationService: LocationService,
 
     private readonly groupEventService: GroupEventService,
+
+    @Optional()
+    @Inject('userBlockRepository')
+    private readonly userBlockRepository?: IUserBlockRepository,
   ) {}
 
   onModuleInit(): void {
@@ -73,6 +84,7 @@ export class LocationGateway
 
   handleDisconnect(client: WebSocket): void {
     this.authenticatedUsers.delete(client);
+    this.blockedUserIdsByClient.delete(client);
 
     for (const [groupId, clients] of this.groupSubscriptions) {
       clients.delete(client);
@@ -129,6 +141,14 @@ export class LocationGateway
         await this.sessionAuthenticationService.authenticate(data.sessionToken);
 
       this.authenticatedUsers.set(client, authentication.user.id);
+      this.blockedUserIdsByClient.set(
+        client,
+        new Set(
+          (await this.userBlockRepository?.findMutuallyBlockedUserIds(
+            authentication.user.id,
+          )) ?? [],
+        ),
+      );
 
       this.send(client, {
         event: 'authenticated',
@@ -221,6 +241,19 @@ export class LocationGateway
     for (const client of clients) {
       const authenticatedUserId = this.authenticatedUsers.get(client);
 
+      const locationUserId =
+        event.event === 'memberLocationUpdated' ||
+        event.event === 'memberLocationHeartbeat'
+          ? event.data.userId
+          : null;
+
+      if (
+        locationUserId !== null &&
+        this.blockedUserIdsByClient.get(client)?.has(locationUserId)
+      ) {
+        continue;
+      }
+
       if (
         event.event === 'memberLeft' &&
         authenticatedUserId === event.data.userId
@@ -247,6 +280,32 @@ export class LocationGateway
       this.groupSubscriptions.delete(event.data.groupId);
     } else if (event.event === 'memberLeft' && clients.size === 0) {
       this.groupSubscriptions.delete(event.data.groupId);
+    }
+  }
+
+  @OnEvent(USER_BLOCK_CHANGED_EVENT)
+  notifyUserBlockChanged(event: UserBlockChangedEvent): void {
+    for (const [client, authenticatedUserId] of this.authenticatedUsers) {
+      const otherUserId =
+        authenticatedUserId === event.blockerUserId
+          ? event.blockedUserId
+          : authenticatedUserId === event.blockedUserId
+            ? event.blockerUserId
+            : null;
+      if (otherUserId === null) continue;
+
+      const blockedUserIds =
+        this.blockedUserIdsByClient.get(client) ?? new Set<number>();
+      if (event.isBlocked) {
+        blockedUserIds.add(otherUserId);
+      } else {
+        blockedUserIds.delete(otherUserId);
+      }
+      this.blockedUserIdsByClient.set(client, blockedUserIds);
+      this.send(client, {
+        event: 'memberVisibilityChanged',
+        data: { userId: otherUserId, isBlocked: event.isBlocked },
+      });
     }
   }
 

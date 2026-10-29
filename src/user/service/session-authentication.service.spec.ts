@@ -1,4 +1,6 @@
 import { Logger, UnauthorizedException } from '@nestjs/common';
+import { AGE_VERIFICATION_REQUIRED_MESSAGE } from '../constants/minimum-account-age';
+import { TERMS_ACCEPTANCE_REQUIRED_MESSAGE } from '../constants/terms-of-use.constants';
 import type { IUserSessionRepository } from '../repository/user-session.repository.interface';
 import { SessionAuthenticationService } from './session-authentication.service';
 
@@ -44,5 +46,47 @@ describe('SessionAuthenticationService', () => {
     );
     expect(findActiveByTokenHash).not.toHaveBeenCalled();
     expect(logger).not.toHaveBeenCalled();
+  });
+
+  it('revokes sessions for accounts without age verification', async () => {
+    const revokeById = jest.fn().mockResolvedValue(undefined);
+    const repository = {
+      findActiveByTokenHash: jest.fn().mockResolvedValue({
+        id: 17,
+        user: {
+          ageVerifiedAt: null,
+          termsAcceptedAt: null,
+          termsAcceptedVersion: null,
+        },
+      }),
+      revokeById,
+    } as unknown as IUserSessionRepository;
+    const service = new SessionAuthenticationService(repository);
+
+    await expect(service.authenticate('unverified-session')).rejects.toThrow(
+      AGE_VERIFICATION_REQUIRED_MESSAGE,
+    );
+    expect(revokeById).toHaveBeenCalledWith(17);
+  });
+
+  it('revokes sessions for accounts that have not accepted the current terms', async () => {
+    const revokeById = jest.fn().mockResolvedValue(undefined);
+    const repository = {
+      findActiveByTokenHash: jest.fn().mockResolvedValue({
+        id: 21,
+        user: {
+          ageVerifiedAt: new Date(),
+          termsAcceptedAt: null,
+          termsAcceptedVersion: null,
+        },
+      }),
+      revokeById,
+    } as unknown as IUserSessionRepository;
+    const service = new SessionAuthenticationService(repository);
+
+    await expect(
+      service.authenticate('terms-unaccepted-session'),
+    ).rejects.toThrow(TERMS_ACCEPTANCE_REQUIRED_MESSAGE);
+    expect(revokeById).toHaveBeenCalledWith(21);
   });
 });

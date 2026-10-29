@@ -1,0 +1,227 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+
+const developerName = import.meta.env.PUBLIC_DEVELOPER_NAME?.trim() || 'DobleT';
+const privacyEmail =
+  import.meta.env.PUBLIC_PRIVACY_EMAIL?.trim() || 'dobletpf@gmail.com';
+const configuredPolicyDate =
+  import.meta.env.PUBLIC_POLICY_EFFECTIVE_DATE?.trim() || '2026-10-30';
+const policyDateParts = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(
+  configuredPolicyDate,
+);
+const policyDate = policyDateParts
+  ? `${policyDateParts[3]}/${policyDateParts[2]}/${policyDateParts[1]}`
+  : configuredPolicyDate;
+---
+
+<SiteLayout
+  title="Política de privacidad | Bond"
+  description="Política de privacidad de Bond: información que usamos, cómo la compartimos y cómo solicitar su eliminación."
+>
+  <article>
+    <header class="hero">
+      <p class="eyebrow">Bond · información de privacidad</p>
+      <h1>Política de privacidad</h1>
+    </header>
+
+    <section class="content-section" aria-labelledby="responsable">
+      <h2 id="responsable">Responsable y contacto</h2>
+      <dl class="definition-list">
+        <dt>Aplicación</dt>
+        <dd>Bond</dd>
+        <dt>Desarrollador responsable</dt>
+        <dd>
+          {developerName || <span class="pending-value">Pendiente: nombre legal del responsable que figurará en Google Play.</span>}
+        </dd>
+        <dt>Contacto de privacidad</dt>
+        <dd>
+          {
+            privacyEmail ? (
+              <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>
+            ) : (
+              <span class="pending-value">Pendiente: correo o canal público de privacidad.</span>
+            )
+          }
+        </dd>
+        <dt>Vigente desde</dt>
+        <dd>
+          {policyDate || <span class="pending-value">Pendiente de confirmar.</span>}
+        </dd>
+      </dl>
+    </section>
+
+    <section class="content-section" aria-labelledby="datos">
+      <h2 id="datos">Información que procesa Bond</h2>
+      <ul>
+        <li>
+          <strong>Cuenta y autenticación:</strong> nombre, correo electrónico,
+          contraseña almacenada de forma protegida, verificación del correo y
+          datos necesarios para mantener la sesión.
+        </li>
+        <li>
+          <strong>Edad:</strong> durante el registro usamos la fecha de nacimiento
+          para comprobar que tengas al menos 13 años. No conservamos esa fecha;
+          solo dejamos constancia de que la verificación se completó.
+        </li>
+        <li>
+          <strong>Fotos:</strong> fotos de perfil y fotos que los administradores
+          eligen para sus grupos. Se guardan en Supabase y se muestran mediante
+          enlaces públicos.
+        </li>
+        <li>
+          <strong>Contenido de grupos:</strong> nombres y descripciones de grupos,
+          miembros, eventos, recordatorios, puntos de interés, ubicaciones
+          asociadas y notificaciones del grupo.
+        </li>
+        <li>
+          <strong>Ubicación:</strong> ubicación precisa y momento en que se
+          obtuvo. Se comparte con miembros de los grupos donde activaste esa
+          función y puede seguir actualizándose en segundo plano mientras esté
+          habilitada y tenga los permisos necesarios. También se usa para las
+          funciones de lugares de interés de cada grupo.
+        </li>
+        <li>
+          <strong>Notificaciones:</strong> información necesaria para enviarlas,
+          tus preferencias y su contenido relacionado con los grupos.
+        </li>
+        <li>
+          <strong>Bloqueos:</strong> las cuentas que bloqueás y la fecha del
+          bloqueo, para ocultar mutuamente perfiles y ubicaciones y evitar que
+          vuelvan a incorporarse a un mismo grupo.
+        </li>
+        <li>
+          <strong>Actividad y seguridad:</strong> actividad dentro de la aplicación,
+          dirección IP y registros de intentos de acceso para proteger las cuentas
+          y el servicio.
+        </li>
+        <li>
+          <strong>Denuncias:</strong> el motivo, los detalles y la información de
+          las cuentas y del grupo que indiqués al denunciar a un miembro.
+        </li>
+      </ul>
+      <p>
+        Bond no guarda un historial de recorridos. Cuando dejás de compartir tu
+        ubicación, deja de mostrarse a los grupos, salvo que la hayas añadido a
+        un evento o lugar de interés.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="usos">
+      <h2 id="usos">Cómo usamos tu información</h2>
+      <ul>
+        <li>Crear y proteger cuentas, verificar correos e iniciar sesión.</li>
+        <li>Verificar que las personas que usan Bond tengan al menos 13 años.</li>
+        <li>Organizar grupos y compartir el contenido que sus miembros crean.</li>
+        <li>Mostrar ubicación actual a los miembros autorizados por el grupo.</li>
+        <li>Calcular rutas cuando la persona solicita esa función.</li>
+        <li>Enviar notificaciones de grupos y alertas de seguridad.</li>
+        <li>Aplicar bloqueos y proteger a las personas de interacciones no deseadas.</li>
+        <li>Revisar denuncias y actuar frente a contenido o conductas no permitidos.</li>
+        <li>Medir actividad agregada de uso y proteger la operación del servicio.</li>
+      </ul>
+      <p>
+        Bond no muestra anuncios ni usa tus datos para publicidad.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="destinatarios">
+      <h2 id="destinatarios">Con quién compartimos tu información</h2>
+      <p>
+        El contenido y la ubicación que compartís en un grupo se muestran a sus
+        miembros. Bond no usa esa información para publicidad.
+      </p>
+      <ul>
+        <li>
+          <strong>Supabase:</strong> guarda fotos de perfil y de grupos en Estados
+          Unidos. Allí también se alojan copias de respaldo.
+        </li>
+        <li>
+          <strong>Google:</strong> ayuda a enviar notificaciones al dispositivo y
+          correos de verificación y seguridad.
+        </li>
+        <li>
+          <strong>CARTO:</strong> proporciona las imágenes del
+          mapa. Al cargarlas, pueden recibir tu dirección IP y la zona que estás
+          viendo. El mapa muestra también la atribución a OpenStreetMap, cuyos
+          datos se usan para crear los mapas.
+        </li>
+        <li>
+          <strong>Servicio de rutas OpenRouteService:</strong> recibe los puntos
+          de partida y llegada cuando pedís calcular una ruta.
+        </li>
+        <li>
+          <strong>OpenStreetMap (Nominatim):</strong> ayuda a buscar direcciones.
+          Recibe el texto buscado y, si corresponde, una zona aproximada o el punto
+          elegido en el mapa.
+        </li>
+        <li>
+          <strong>Google (Gmail):</strong> usa tu nombre y correo para enviar
+          mensajes de verificación y confirmación de eliminación, y recibe las
+          denuncias enviadas al equipo de Bond para su revisión.
+        </li>
+        <li>
+          <strong>Hostinger:</strong> aloja los servidores de Bond, donde se
+          guardan los datos de cuentas y grupos, en Brasil (Campinas).
+        </li>
+      </ul>
+      <p>
+        Estos servicios reciben solo la información necesaria para prestar sus
+        funciones.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="seguridad">
+      <h2 id="seguridad">Seguridad</h2>
+      <p>
+        Protegemos tu información con conexiones cifradas y controles de acceso.
+        Las contraseñas se guardan de forma protegida y no en texto legible. Cada
+        grupo solo puede ser visto por sus miembros. También registramos los
+        intentos de acceso para detectar actividad inusual y proteger las cuentas.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="retencion">
+      <h2 id="retencion">Retención y eliminación</h2>
+      <ul>
+        <li>
+          Al eliminar tu cuenta desde Bond, también eliminamos la información de
+          acceso, la foto de perfil, las notificaciones y la ubicación actual
+          asociadas.
+        </li>
+        <li>
+          Las cuentas que no verifican su correo se eliminan automáticamente al
+          vencer el enlace de verificación, válido durante 24 horas.
+        </li>
+        <li>
+          Los bloqueos se eliminan cuando los quitás o cuando se elimina la cuenta
+          correspondiente.
+        </li>
+        <li>
+          Si el grupo tiene otros miembros, el contenido compartido del grupo se
+          conserva para ellos. Si la cuenta era el único miembro, se elimina el
+          grupo y su contenido asociado.
+        </li>
+        <li>
+          Algunas copias de respaldo pueden conservar temporalmente datos ya
+          eliminados. Se reemplazan automáticamente según su ciclo de conservación.
+          Los registros de seguridad y las denuncias se conservan solo mientras
+          sean necesarios para proteger a las personas y revisar los casos.
+        </li>
+      </ul>
+      <p>
+        También podés solicitar la eliminación desde la página de{' '}
+        <a href={`${import.meta.env.BASE_URL}account-deletion/`}>eliminación de cuenta</a>.
+      </p>
+    </section>
+
+    <section class="content-section" aria-labelledby="audiencia">
+      <h2 id="audiencia">Audiencia objetivo</h2>
+      <p>
+        Bond está dirigida a personas de 13 años o más. No permitimos que menores
+        de 13 años creen una cuenta ni usen la aplicación. Durante el registro
+        pedimos la fecha de nacimiento para comprobar la edad mínima; no la
+        conservamos y solo dejamos constancia de que la verificación se completó.
+      </p>
+    </section>
+  </article>
+</SiteLayout>

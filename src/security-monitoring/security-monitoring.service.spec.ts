@@ -30,6 +30,20 @@ class InMemorySecurityEventRepository implements ISecurityEventRepository {
     return Promise.resolve();
   }
 
+  deleteOlderThan(createdBefore: Date): Promise<void> {
+    for (let index = this.events.length - 1; index >= 0; index--) {
+      if (this.events[index].createdAt < createdBefore) {
+        this.events.splice(index, 1);
+      }
+    }
+    for (let index = this.alerts.length - 1; index >= 0; index--) {
+      if (this.alerts[index].createdAt < createdBefore) {
+        this.alerts.splice(index, 1);
+      }
+    }
+    return Promise.resolve();
+  }
+
   countRecentAuthenticationFailures(
     identifierHash: string,
     since: Date,
