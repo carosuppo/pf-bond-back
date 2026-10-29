@@ -6,6 +6,7 @@ import {
 import { ExpenseEntity } from '../entity/expense.entity';
 import {
   ExpensePaymentEntity,
+  PendingExpenseAdjustmentEntity,
   PendingExpenseShareEntity,
 } from '../entity/expense-payment.entity';
 import { CreateExpenseAccountData } from '../interface/create-expense-account.interface';
@@ -39,15 +40,27 @@ export interface IExpenseAccountRepository {
   createExpense(
     data: CreateExpenseData,
     accountId: number,
+    userId: number,
+  ): Promise<ExpenseEntity>;
+  updateExpense(
+    accountId: number,
+    expenseId: number,
+    userId: number,
+    data: CreateExpenseData,
   ): Promise<ExpenseEntity>;
   findPendingExpenseShares(
     accountId: number,
     memberId: number,
   ): Promise<PendingExpenseShareEntity[]>;
+  findPendingExpenseAdjustments(
+    accountId: number,
+    memberId: number,
+  ): Promise<PendingExpenseAdjustmentEntity[]>;
   registerExpensePayments(
     accountId: number,
     memberId: number,
     expenseShareIds: number[] | null,
+    adjustmentIds: number[] | null,
   ): Promise<ExpensePaymentEntity[]>;
   deleteExpenseAccount(accountId: number, userId: number): Promise<void>;
   findMovementsByAccountId(accountId: number): Promise<AccountMovementData[]>;

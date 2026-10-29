@@ -8,8 +8,10 @@ import { ExpensePaymentResponseDto } from './dto/expense-payment-response.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
 import { PendingExpenseShareResponseDto } from './dto/pending-expense-share-response.dto';
+import { PendingExpenseAdjustmentResponseDto } from './dto/pending-expense-adjustment-response.dto';
 import { RegisterExpensePaymentsDto } from './dto/register-expense-payments.dto';
 import { UpdateExpenseAccountDto } from './dto/update-expense-account.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { splitEqually } from './balance/expense-split.helper';
 import type { CreateExpenseAccountData } from './interface/create-expense-account.interface';
 import type { CreateExpenseData } from './interface/create-expense.interface';
@@ -196,9 +198,61 @@ export class ExpenseAccountService {
     const createdExpense = await this.expenseAccountRepository.createExpense(
       persistenceData,
       accountId,
+      userId,
     );
 
     return ExpenseAccountMapper.toExpenseResponse(createdExpense);
+  }
+
+  async updateExpense(
+    updateExpenseDto: UpdateExpenseDto,
+    accountId: number,
+    expenseId: number,
+    userId: number,
+  ): Promise<ExpenseResponseDto> {
+    const isEqualSplit = updateExpenseDto.splitType === ExpenseSplitType.EQUAL;
+    const participantIds = isEqualSplit
+      ? [...new Set(updateExpenseDto.participantIds ?? [])]
+      : (updateExpenseDto.shares ?? []).map((share) => share.memberId);
+
+    if (participantIds.length === 0) {
+      throw new BadRequestException(
+        'Debes indicar al menos un participante del gasto.',
+      );
+    }
+
+    const shares = isEqualSplit
+      ? splitEqually(updateExpenseDto.amountCents, participantIds)
+      : (updateExpenseDto.shares ?? []).map((share) => ({
+          memberId: share.memberId,
+          amountCents: share.amountCents,
+        }));
+
+    if (!isEqualSplit) {
+      this.expenseAccountValidator.validateCustomSharesTotal(
+        updateExpenseDto.amountCents,
+        shares,
+      );
+    }
+
+    const data: CreateExpenseData = {
+      title:
+        updateExpenseDto.title === undefined
+          ? undefined
+          : updateExpenseDto.title?.trim() || null,
+      amountCents: updateExpenseDto.amountCents,
+      payerMemberId: updateExpenseDto.payerMemberId,
+      splitType: updateExpenseDto.splitType,
+      shares,
+    };
+    const updatedExpense = await this.expenseAccountRepository.updateExpense(
+      accountId,
+      expenseId,
+      userId,
+      data,
+    );
+
+    return ExpenseAccountMapper.toExpenseResponse(updatedExpense);
   }
 
   async getPendingExpenseShares(
@@ -220,11 +274,38 @@ export class ExpenseAccountService {
     );
   }
 
+  async getPendingExpenseAdjustments(
+    accountId: number,
+    userId: number,
+  ): Promise<PendingExpenseAdjustmentResponseDto[]> {
+    const { member } =
+      await this.expenseAccountValidator.requireAccountMembership(
+        accountId,
+        userId,
+      );
+    const adjustments =
+      await this.expenseAccountRepository.findPendingExpenseAdjustments(
+        accountId,
+        member.id,
+      );
+
+    return adjustments.map((adjustment) =>
+      ExpenseAccountMapper.toPendingExpenseAdjustmentResponse(adjustment),
+    );
+  }
+
   async registerExpensePayments(
     accountId: number,
     userId: number,
     dto: RegisterExpensePaymentsDto,
   ): Promise<ExpensePaymentResponseDto[]> {
+    const expenseShareIds = dto.expenseShareIds ?? [];
+    const adjustmentIds = dto.adjustmentIds ?? [];
+    if (expenseShareIds.length === 0 && adjustmentIds.length === 0) {
+      throw new BadRequestException(
+        'Debes seleccionar al menos una participación o un ajuste pendiente.',
+      );
+    }
     const { member } =
       await this.expenseAccountValidator.requireAccountMembership(
         accountId,
@@ -234,7 +315,8 @@ export class ExpenseAccountService {
       await this.expenseAccountRepository.registerExpensePayments(
         accountId,
         member.id,
-        dto.expenseShareIds,
+        expenseShareIds,
+        adjustmentIds,
       );
 
     return payments.map((payment) =>
@@ -255,6 +337,7 @@ export class ExpenseAccountService {
       await this.expenseAccountRepository.registerExpensePayments(
         accountId,
         member.id,
+        null,
         null,
       );
 

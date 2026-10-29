@@ -3,11 +3,13 @@ import { ExpenseAccountDetailResponseDto } from '../dto/expense-account-detail-r
 import { ExpenseAccountResponseDto } from '../dto/expense-account-response.dto';
 import { ExpenseResponseDto } from '../dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from '../dto/my-expense-account-response.dto';
+import { PendingExpenseAdjustmentResponseDto } from '../dto/pending-expense-adjustment-response.dto';
 import { ExpensePaymentResponseDto } from '../dto/expense-payment-response.dto';
 import { PendingExpenseShareResponseDto } from '../dto/pending-expense-share-response.dto';
 import { ExpenseEntity } from '../entity/expense.entity';
 import {
   ExpensePaymentEntity,
+  PendingExpenseAdjustmentEntity,
   PendingExpenseShareEntity,
 } from '../entity/expense-payment.entity';
 import {
@@ -102,7 +104,14 @@ export class ExpenseAccountMapper {
       amountCents: expense.amountCents,
       splitType: expense.splitType,
       payerMemberId: expense.payerMemberId,
-      shares: expense.shares,
+      createdByUserId: expense.createdByUserId,
+      lastEditedByUserId: expense.lastEditedByUserId,
+      lastEditedAt: expense.lastEditedAt,
+      shares: expense.shares.map((share) => ({
+        memberId: share.memberId,
+        amountCents: share.amountCents,
+        isCurrent: share.isCurrent,
+      })),
       createdAt: expense.createdAt,
     };
   }
@@ -110,7 +119,13 @@ export class ExpenseAccountMapper {
   static toPendingExpenseShareResponse(
     share: PendingExpenseShareEntity,
   ): PendingExpenseShareResponseDto {
-    return { ...share };
+    return { kind: 'EXPENSE_SHARE', ...share };
+  }
+
+  static toPendingExpenseAdjustmentResponse(
+    adjustment: PendingExpenseAdjustmentEntity,
+  ): PendingExpenseAdjustmentResponseDto {
+    return { kind: 'ADJUSTMENT', ...adjustment };
   }
 
   static toExpensePaymentResponse(

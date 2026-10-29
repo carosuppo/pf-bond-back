@@ -26,10 +26,10 @@ export function toBalanceStatus(balanceCents: number): BalanceStatus {
 }
 
 /**
- * Calcula el saldo neto de cada miembro: lo pagado menos lo que le
- * corresponde aportar. Las participaciones pagadas dejan de generar deuda;
- * sus pagos vinculados se conservan como historial y no vuelven a descontarse.
- * Un saldo positivo significa que el miembro tiene importe a favor.
+ * Calcula el saldo neto vigente de cada miembro. Las participaciones actuales
+ * sin pagar y los ajustes pendientes crean obligaciones; los pagos y ajustes
+ * liquidados se conservan como historial sin volver a descontarse. Un saldo
+ * positivo significa que el miembro tiene importe a favor.
  */
 export function calculateBalances(
   memberIds: number[],
@@ -42,7 +42,10 @@ export function calculateBalances(
   for (const movement of movements) {
     if (movement.kind === 'EXPENSE') {
       const pendingShares = movement.shares.filter(
-        (share) => !share.isPaid && share.memberId !== movement.payerMemberId,
+        (share) =>
+          share.isCurrent !== false &&
+          !share.isPaid &&
+          share.memberId !== movement.payerMemberId,
       );
       const totalPending = pendingShares.reduce(
         (sum, share) => sum + share.amountCents,
@@ -64,7 +67,7 @@ export function calculateBalances(
           );
         }
       }
-    } else {
+    } else if (movement.kind === 'PAYMENT') {
       // Linked payments settle one participation, which is already excluded
       // from the pending expense shares above. Applying them here as well
       // would discount unrelated debts between the same members.
@@ -86,6 +89,22 @@ export function calculateBalances(
           (balances.get(movement.toMemberId) as number) - movement.amountCents,
         );
       }
+    } else if (movement.status === 'PENDING') {
+      if (balances.has(movement.creditorMemberId)) {
+        balances.set(
+          movement.creditorMemberId,
+          (balances.get(movement.creditorMemberId) as number) +
+            movement.amountCents,
+        );
+      }
+
+      if (balances.has(movement.debtorMemberId)) {
+        balances.set(
+          movement.debtorMemberId,
+          (balances.get(movement.debtorMemberId) as number) -
+            movement.amountCents,
+        );
+      }
     }
   }
 
@@ -101,9 +120,8 @@ export function calculateBalances(
 }
 
 /**
- * Importes que le deben al miembro indicado: partes impagas de los gastos
- * que pagó, menos los pagos que ya recibió. El dinero es fungible, por lo
- * que los pagos se descuentan del total adeudado por cada deudor.
+ * Obligaciones pendientes a favor del miembro: participaciones actuales de sus
+ * gastos y ajustes pendientes, agrupados por deudor.
  */
 export function calculateDebtsToMember(
   movements: AccountMovementData[],
@@ -118,7 +136,11 @@ export function calculateDebtsToMember(
       }
 
       for (const share of movement.shares) {
-        if (share.memberId === memberId || share.isPaid) {
+        if (
+          share.isCurrent === false ||
+          share.memberId === memberId ||
+          share.isPaid
+        ) {
           continue;
         }
 
@@ -127,7 +149,10 @@ export function calculateDebtsToMember(
           (owed.get(share.memberId) ?? 0) + share.amountCents,
         );
       }
-    } else if (movement.toMemberId === memberId) {
+    } else if (
+      movement.kind === 'PAYMENT' &&
+      movement.toMemberId === memberId
+    ) {
       if (movement.expenseShareId !== undefined) {
         continue;
       }
@@ -135,6 +160,15 @@ export function calculateDebtsToMember(
       owed.set(
         movement.fromMemberId,
         (owed.get(movement.fromMemberId) ?? 0) - movement.amountCents,
+      );
+    } else if (
+      movement.kind === 'ADJUSTMENT' &&
+      movement.status === 'PENDING' &&
+      movement.creditorMemberId === memberId
+    ) {
+      owed.set(
+        movement.debtorMemberId,
+        (owed.get(movement.debtorMemberId) ?? 0) + movement.amountCents,
       );
     }
   }
@@ -149,8 +183,8 @@ export function calculateDebtsToMember(
 }
 
 /**
- * Importes que el miembro indicado debe pagar: sus partes impagas en gastos
- * pagados por otros (memberId = acreedor), menos los pagos que ya realizó.
+ * Obligaciones pendientes del miembro: sus participaciones actuales y ajustes
+ * pendientes, agrupados por acreedor.
  */
 export function calculateDebtsOfMember(
   movements: AccountMovementData[],
@@ -165,7 +199,10 @@ export function calculateDebtsOfMember(
       }
 
       const share = movement.shares.find(
-        (candidate) => candidate.memberId === memberId && !candidate.isPaid,
+        (candidate) =>
+          candidate.isCurrent !== false &&
+          candidate.memberId === memberId &&
+          !candidate.isPaid,
       );
 
       if (!share) {
@@ -176,7 +213,10 @@ export function calculateDebtsOfMember(
         movement.payerMemberId,
         (owed.get(movement.payerMemberId) ?? 0) + share.amountCents,
       );
-    } else if (movement.fromMemberId === memberId) {
+    } else if (
+      movement.kind === 'PAYMENT' &&
+      movement.fromMemberId === memberId
+    ) {
       if (movement.expenseShareId !== undefined) {
         continue;
       }
@@ -184,6 +224,15 @@ export function calculateDebtsOfMember(
       owed.set(
         movement.toMemberId,
         (owed.get(movement.toMemberId) ?? 0) - movement.amountCents,
+      );
+    } else if (
+      movement.kind === 'ADJUSTMENT' &&
+      movement.status === 'PENDING' &&
+      movement.debtorMemberId === memberId
+    ) {
+      owed.set(
+        movement.creditorMemberId,
+        (owed.get(movement.creditorMemberId) ?? 0) + movement.amountCents,
       );
     }
   }

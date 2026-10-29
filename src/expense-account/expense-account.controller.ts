@@ -21,8 +21,10 @@ import { ExpensePaymentResponseDto } from './dto/expense-payment-response.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
 import { PendingExpenseShareResponseDto } from './dto/pending-expense-share-response.dto';
+import { PendingExpenseAdjustmentResponseDto } from './dto/pending-expense-adjustment-response.dto';
 import { RegisterExpensePaymentsDto } from './dto/register-expense-payments.dto';
 import { UpdateExpenseAccountDto } from './dto/update-expense-account.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpenseAccountService } from './expense-account.service';
 
 @UseGuards(SessionAuthGuard)
@@ -80,12 +82,35 @@ export class ExpenseAccountController {
     return this.expenseAccountService.createExpense(dto, id, userId);
   }
 
+  @Patch(':accountId/expense/:expenseId')
+  updateExpense(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Param('expenseId', ParseIntPipe) expenseId: number,
+    @Body() dto: UpdateExpenseDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpenseResponseDto> {
+    return this.expenseAccountService.updateExpense(
+      dto,
+      accountId,
+      expenseId,
+      userId,
+    );
+  }
+
   @Get(':id/pending-shares')
   getPendingShares(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() userId: number,
   ): Promise<PendingExpenseShareResponseDto[]> {
     return this.expenseAccountService.getPendingExpenseShares(id, userId);
+  }
+
+  @Get(':id/pending-adjustments')
+  getPendingAdjustments(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<PendingExpenseAdjustmentResponseDto[]> {
+    return this.expenseAccountService.getPendingExpenseAdjustments(id, userId);
   }
 
   @Post(':id/payments')

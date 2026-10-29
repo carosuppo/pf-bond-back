@@ -1,4 +1,5 @@
 export class PendingExpenseShareResponseDto {
+  kind!: 'EXPENSE_SHARE';
   expenseShareId!: number;
   expenseId!: number;
   expenseTitle!: string | null;

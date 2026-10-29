@@ -19,6 +19,7 @@ import { ExpenseAccountEntity } from '../entity/expense-account.entity';
 import { ExpenseEntity } from '../entity/expense.entity';
 import {
   type ExpensePaymentEntity,
+  type PendingExpenseAdjustmentEntity,
   type PendingExpenseShareEntity,
 } from '../entity/expense-payment.entity';
 import type { AccountMovementData } from '../interface/account-movement.interface';
@@ -29,6 +30,10 @@ import {
   ExpenseEventForValidation,
   IExpenseAccountRepository,
 } from './expense-account.repository.interface';
+
+type ExpenseShareWithHistory = Prisma.ExpenseShareGetPayload<{
+  include: { payment: true; adjustments: true };
+}>;
 
 @Injectable()
 export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository {
@@ -438,6 +443,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
   async createExpense(
     data: CreateExpenseData,
     accountId: number,
+    userId: number,
   ): Promise<ExpenseEntity> {
     const expense = await this.prismaService
       .$transaction(
@@ -447,6 +453,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
             data: {
               expenseAccountId: accountId,
               payerMemberId: data.payerMemberId,
+              createdByUserId: userId,
               title: data.title ?? null,
               amountCents: data.amountCents,
               splitType: data.splitType,
@@ -483,12 +490,300 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
       amountCents: expense.amountCents,
       splitType: expense.splitType,
       payerMemberId: expense.payerMemberId,
+      createdByUserId: expense.createdByUserId,
+      lastEditedByUserId: expense.lastEditedByUserId,
+      lastEditedAt: expense.lastEditedAt,
       shares: expense.shares.map((share) => ({
         memberId: share.memberId,
         amountCents: share.amountCents,
+        isCurrent: share.isCurrent,
       })),
       createdAt: expense.createdAt,
     };
+  }
+
+  async updateExpense(
+    accountId: number,
+    expenseId: number,
+    userId: number,
+    data: CreateExpenseData,
+  ): Promise<ExpenseEntity> {
+    try {
+      return await this.prismaService.$transaction(
+        async (tx) => {
+          await this.lockActiveAccount(tx, accountId);
+          const account = await tx.expenseAccount.findUniqueOrThrow({
+            where: { id: accountId },
+            select: {
+              id: true,
+              groupId: true,
+              eventId: true,
+              members: { select: { memberId: true } },
+            },
+          });
+          const expense = await tx.expense.findFirst({
+            where: { id: expenseId, expenseAccountId: accountId },
+            include: {
+              shares: { include: { payment: true, adjustments: true } },
+            },
+          });
+
+          if (!expense) {
+            throw new NotFoundException('El gasto no existe en esta cuenta.');
+          }
+
+          const requester = await tx.member.findUnique({
+            where: {
+              userId_groupId: { userId, groupId: account.groupId },
+            },
+            select: { role: true },
+          });
+          const isCreator = expense.createdByUserId === userId;
+          const isGroupAdmin = requester?.role === RoleEnum.ADMIN;
+          if (!isCreator && !isGroupAdmin) {
+            throw new ForbiddenException(
+              'Solo quien registró el gasto o un administrador del grupo puede editarlo.',
+            );
+          }
+
+          if (data.amountCents <= 0 || data.shares.length === 0) {
+            throw new BadRequestException(
+              'El importe debe ser mayor que cero y el gasto debe tener participantes.',
+            );
+          }
+          const shareMemberIds = data.shares.map((share) => share.memberId);
+          if (new Set(shareMemberIds).size !== shareMemberIds.length) {
+            throw new BadRequestException(
+              'No puedes repetir participantes en el reparto.',
+            );
+          }
+          const assignedCents = data.shares.reduce(
+            (sum, share) => sum + share.amountCents,
+            0,
+          );
+          if (assignedCents !== data.amountCents) {
+            throw new BadRequestException(
+              'La suma de los importes asignados no coincide con el total del gasto.',
+            );
+          }
+
+          const requiredMemberIds = [
+            ...new Set([data.payerMemberId, ...shareMemberIds]),
+          ];
+          const accountMemberIds = new Set(
+            account.members.map((member) => member.memberId),
+          );
+          const invalidAccountMemberIds = requiredMemberIds.filter(
+            (memberId) => !accountMemberIds.has(memberId),
+          );
+          if (invalidAccountMemberIds.length > 0) {
+            throw new BadRequestException(
+              `Los siguientes miembros no pertenecen a la cuenta: ${invalidAccountMemberIds.join(', ')}`,
+            );
+          }
+
+          if (account.eventId !== null) {
+            const eventMembers = await tx.eventMember.findMany({
+              where: {
+                eventId: account.eventId,
+                memberId: { in: requiredMemberIds },
+              },
+              select: { memberId: true },
+            });
+            const eventMemberIds = new Set(
+              eventMembers.map((member) => member.memberId),
+            );
+            const invalidEventMemberIds = requiredMemberIds.filter(
+              (memberId) => !eventMemberIds.has(memberId),
+            );
+            if (invalidEventMemberIds.length > 0) {
+              throw new BadRequestException(
+                `Los siguientes miembros no pertenecen al evento de la cuenta: ${invalidEventMemberIds.join(', ')}`,
+              );
+            }
+          }
+
+          if (data.payerMemberId !== expense.payerMemberId) {
+            const [paymentCount, settledAdjustmentCount] = await Promise.all([
+              tx.expensePayment.count({ where: { expenseId } }),
+              tx.expenseAdjustment.count({
+                where: { expenseId, status: 'PAID' },
+              }),
+            ]);
+            if (paymentCount > 0 || settledAdjustmentCount > 0) {
+              throw new BadRequestException(
+                'No se puede cambiar el pagador porque el gasto ya tiene pagos confirmados.',
+              );
+            }
+          }
+
+          const inputSharesByMemberId = new Map(
+            data.shares.map((share) => [share.memberId, share.amountCents]),
+          );
+          const existingSharesByMemberId = new Map(
+            expense.shares.map((share) => [share.memberId, share]),
+          );
+          const currentShares = new Map<number, ExpenseShareWithHistory>();
+
+          for (const [memberId, amountCents] of inputSharesByMemberId) {
+            const existingShare = existingSharesByMemberId.get(memberId);
+            const updatedShare = existingShare
+              ? await tx.expenseShare.update({
+                  where: { id: existingShare.id },
+                  data: { amountCents, isCurrent: true },
+                  include: { payment: true, adjustments: true },
+                })
+              : await tx.expenseShare.create({
+                  data: { expenseId, memberId, amountCents, isCurrent: true },
+                  include: { payment: true, adjustments: true },
+                });
+            currentShares.set(memberId, updatedShare);
+          }
+
+          const removedShares = expense.shares.filter(
+            (share) => !inputSharesByMemberId.has(share.memberId),
+          );
+          for (const removedShare of removedShares) {
+            const inactiveShare = await tx.expenseShare.update({
+              where: { id: removedShare.id },
+              data: { isCurrent: false },
+              include: { payment: true, adjustments: true },
+            });
+            currentShares.set(removedShare.memberId, inactiveShare);
+          }
+
+          await tx.expense.update({
+            where: { id: expenseId },
+            data: {
+              title: data.title === undefined ? expense.title : data.title,
+              amountCents: data.amountCents,
+              payerMemberId: data.payerMemberId,
+              splitType: data.splitType,
+              lastEditedByUserId: userId,
+              lastEditedAt: new Date(),
+            },
+          });
+
+          for (const [memberId, share] of currentShares) {
+            await this.reconcileExpenseShareAdjustments(
+              tx,
+              expenseId,
+              share,
+              inputSharesByMemberId.has(memberId),
+              inputSharesByMemberId.get(memberId) ?? 0,
+              data.payerMemberId,
+            );
+          }
+
+          const updatedExpense = await tx.expense.findUniqueOrThrow({
+            where: { id: expenseId },
+            include: {
+              shares: {
+                where: { isCurrent: true },
+                select: { memberId: true, amountCents: true, isCurrent: true },
+              },
+            },
+          });
+
+          return {
+            id: updatedExpense.id,
+            expenseAccountId: updatedExpense.expenseAccountId,
+            title: updatedExpense.title,
+            amountCents: updatedExpense.amountCents,
+            splitType: updatedExpense.splitType,
+            payerMemberId: updatedExpense.payerMemberId,
+            createdByUserId: updatedExpense.createdByUserId,
+            lastEditedByUserId: updatedExpense.lastEditedByUserId,
+            lastEditedAt: updatedExpense.lastEditedAt,
+            shares: updatedExpense.shares,
+            createdAt: updatedExpense.createdAt,
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2002' || error.code === 'P2034')
+      ) {
+        throw new ConflictException(
+          'El gasto cambió durante la edición. Volvé a cargarlo e intentá nuevamente.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async reconcileExpenseShareAdjustments(
+    tx: Prisma.TransactionClient,
+    expenseId: number,
+    share: ExpenseShareWithHistory,
+    isCurrent: boolean,
+    currentAmountCents: number,
+    payerMemberId: number,
+  ): Promise<void> {
+    const paidAdjustments = share.adjustments.filter(
+      (adjustment) => adjustment.status === 'PAID',
+    );
+    const pendingAdjustments = share.adjustments.filter(
+      (adjustment) => adjustment.status === 'PENDING',
+    );
+    const hasPaymentHistory =
+      share.payment !== null ||
+      paidAdjustments.length > 0 ||
+      pendingAdjustments.length > 0;
+
+    if (!hasPaymentHistory) return;
+
+    const paidAdjustmentNet = paidAdjustments.reduce((net, adjustment) => {
+      if (adjustment.debtorMemberId === share.memberId) {
+        return net + adjustment.amountCents;
+      }
+      if (adjustment.creditorMemberId === share.memberId) {
+        return net - adjustment.amountCents;
+      }
+      return net;
+    }, 0);
+    const currentOwedCents =
+      isCurrent && share.memberId !== payerMemberId ? currentAmountCents : 0;
+    const outstandingCents =
+      currentOwedCents - (share.payment?.amountCents ?? 0) - paidAdjustmentNet;
+    const amountCents = Math.abs(outstandingCents);
+    const debtorMemberId =
+      outstandingCents > 0 ? share.memberId : payerMemberId;
+    const creditorMemberId =
+      outstandingCents > 0 ? payerMemberId : share.memberId;
+    const hasNoOutstandingAdjustment = outstandingCents === 0;
+    const hasMatchingPendingAdjustment =
+      !hasNoOutstandingAdjustment &&
+      pendingAdjustments.length === 1 &&
+      pendingAdjustments[0].debtorMemberId === debtorMemberId &&
+      pendingAdjustments[0].creditorMemberId === creditorMemberId &&
+      pendingAdjustments[0].amountCents === amountCents;
+
+    if (hasMatchingPendingAdjustment) return;
+
+    if (pendingAdjustments.length > 0) {
+      await tx.expenseAdjustment.updateMany({
+        where: {
+          id: { in: pendingAdjustments.map((adjustment) => adjustment.id) },
+          status: 'PENDING',
+        },
+        data: { status: 'CANCELED' },
+      });
+    }
+
+    if (!hasNoOutstandingAdjustment) {
+      await tx.expenseAdjustment.create({
+        data: {
+          expenseId,
+          expenseShareId: share.id,
+          debtorMemberId,
+          creditorMemberId,
+          amountCents,
+        },
+      });
+    }
   }
 
   async findPendingExpenseShares(
@@ -498,6 +793,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     const shares = await this.prismaService.expenseShare.findMany({
       where: {
         memberId,
+        isCurrent: true,
         amountCents: { gt: 0 },
         payment: null,
         expense: {
@@ -522,6 +818,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     });
 
     return shares.map((share) => ({
+      kind: 'EXPENSE_SHARE',
       expenseShareId: share.id,
       expenseId: share.expenseId,
       expenseTitle: share.expense.title,
@@ -531,10 +828,43 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     }));
   }
 
+  async findPendingExpenseAdjustments(
+    accountId: number,
+    memberId: number,
+  ): Promise<PendingExpenseAdjustmentEntity[]> {
+    const adjustments = await this.prismaService.expenseAdjustment.findMany({
+      where: {
+        debtorMemberId: memberId,
+        status: 'PENDING',
+        expense: {
+          expenseAccountId: accountId,
+          account: { deletedAt: null },
+        },
+      },
+      include: {
+        expense: { select: { title: true } },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+
+    return adjustments.map((adjustment) => ({
+      kind: 'ADJUSTMENT',
+      adjustmentId: adjustment.id,
+      expenseId: adjustment.expenseId,
+      expenseShareId: adjustment.expenseShareId,
+      expenseTitle: adjustment.expense.title,
+      debtorMemberId: adjustment.debtorMemberId,
+      creditorMemberId: adjustment.creditorMemberId,
+      amountCents: adjustment.amountCents,
+      createdAt: adjustment.createdAt,
+    }));
+  }
+
   async registerExpensePayments(
     accountId: number,
     memberId: number,
     expenseShareIds: number[] | null,
+    adjustmentIds: number[] | null,
   ): Promise<ExpensePaymentEntity[]> {
     try {
       return await this.prismaService.$transaction(
@@ -554,27 +884,30 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
             throw new ForbiddenException('No estás asociado a esta cuenta.');
           }
 
+          const selectAllPending =
+            expenseShareIds === null && adjustmentIds === null;
           const selectedShares = await tx.expenseShare.findMany({
-            where:
-              expenseShareIds === null
-                ? {
-                    memberId,
-                    amountCents: { gt: 0 },
-                    payment: null,
-                    expense: {
-                      expenseAccountId: accountId,
-                      payerMemberId: { not: memberId },
-                      account: { deletedAt: null },
-                    },
-                  }
-                : {
-                    id: { in: expenseShareIds },
-                    memberId,
-                    expense: {
-                      expenseAccountId: accountId,
-                      account: { deletedAt: null },
-                    },
+            where: selectAllPending
+              ? {
+                  memberId,
+                  isCurrent: true,
+                  amountCents: { gt: 0 },
+                  payment: null,
+                  expense: {
+                    expenseAccountId: accountId,
+                    payerMemberId: { not: memberId },
+                    account: { deletedAt: null },
                   },
+                }
+              : {
+                  id: { in: expenseShareIds ?? [] },
+                  memberId,
+                  isCurrent: true,
+                  expense: {
+                    expenseAccountId: accountId,
+                    account: { deletedAt: null },
+                  },
+                },
             include: {
               expense: { select: { payerMemberId: true } },
               payment: { select: { id: true } },
@@ -583,8 +916,8 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
           });
 
           if (
-            expenseShareIds !== null &&
-            selectedShares.length !== expenseShareIds.length
+            !selectAllPending &&
+            selectedShares.length !== (expenseShareIds ?? []).length
           ) {
             throw new BadRequestException(
               'Una o más participaciones no pertenecen a tu cuenta o no son tuyas.',
@@ -622,14 +955,71 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
               },
             });
             payments.push({
+              kind: 'EXPENSE_SHARE',
               id: payment.id,
               expenseId: payment.expenseId,
               expenseShareId: payment.expenseShareId,
+              adjustmentId: null,
               fromMemberId: payment.fromMemberId,
               toMemberId: payment.toMemberId,
               amountCents: payment.amountCents,
               createdAt: payment.createdAt,
               confirmedAt: payment.confirmedAt,
+            });
+          }
+
+          const selectedAdjustments = await tx.expenseAdjustment.findMany({
+            where: selectAllPending
+              ? {
+                  debtorMemberId: memberId,
+                  status: 'PENDING',
+                  expense: {
+                    expenseAccountId: accountId,
+                    account: { deletedAt: null },
+                  },
+                }
+              : {
+                  id: { in: adjustmentIds ?? [] },
+                  debtorMemberId: memberId,
+                  status: 'PENDING',
+                  expense: {
+                    expenseAccountId: accountId,
+                    account: { deletedAt: null },
+                  },
+                },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          });
+
+          if (
+            !selectAllPending &&
+            selectedAdjustments.length !== (adjustmentIds ?? []).length
+          ) {
+            throw new BadRequestException(
+              'Uno o más ajustes no están pendientes, no pertenecen a tu cuenta o no son tuyos.',
+            );
+          }
+
+          for (const adjustment of selectedAdjustments) {
+            const settledAt = new Date();
+            const settledAdjustment = await tx.expenseAdjustment.update({
+              where: { id: adjustment.id },
+              data: {
+                status: 'PAID',
+                settledAt,
+                settledByMemberId: memberId,
+              },
+            });
+            payments.push({
+              kind: 'ADJUSTMENT',
+              id: settledAdjustment.id,
+              expenseId: settledAdjustment.expenseId,
+              expenseShareId: settledAdjustment.expenseShareId,
+              adjustmentId: settledAdjustment.id,
+              fromMemberId: settledAdjustment.debtorMemberId,
+              toMemberId: settledAdjustment.creditorMemberId,
+              amountCents: settledAdjustment.amountCents,
+              createdAt: settledAt,
+              confirmedAt: settledAt,
             });
           }
 
@@ -666,7 +1056,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
       return new Map();
     }
 
-    const [expenses, payments] = await Promise.all([
+    const [expenses, payments, adjustments] = await Promise.all([
       client.expense.findMany({
         where: {
           expenseAccountId: { in: accountIds },
@@ -677,6 +1067,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
             select: {
               memberId: true,
               amountCents: true,
+              isCurrent: true,
               payment: { select: { id: true } },
             },
           },
@@ -697,6 +1088,18 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
         },
         orderBy: { createdAt: 'asc' },
       }),
+      client.expenseAdjustment.findMany({
+        where: {
+          expense: {
+            expenseAccountId: { in: accountIds },
+            account: { deletedAt: null },
+          },
+        },
+        include: {
+          expense: { select: { expenseAccountId: true, title: true } },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
     ]);
 
     const movementsByAccount = new Map<number, AccountMovementData[]>();
@@ -712,8 +1115,11 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
         shares: expense.shares.map((share) => ({
           memberId: share.memberId,
           amountCents: share.amountCents,
+          isCurrent: share.isCurrent,
           isPaid:
-            share.payment !== null || share.memberId === expense.payerMemberId,
+            !share.isCurrent ||
+            share.payment !== null ||
+            share.memberId === expense.payerMemberId,
         })),
         createdAt: expense.createdAt,
       });
@@ -734,6 +1140,26 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
         toMemberId: payment.toMemberId,
         createdAt: payment.createdAt,
         confirmedAt: payment.confirmedAt,
+      });
+      movementsByAccount.set(accountId, movements);
+    }
+
+    for (const adjustment of adjustments) {
+      const accountId = adjustment.expense.expenseAccountId;
+      const movements = movementsByAccount.get(accountId) ?? [];
+      movements.push({
+        kind: 'ADJUSTMENT',
+        id: adjustment.id,
+        expenseId: adjustment.expenseId,
+        expenseShareId: adjustment.expenseShareId,
+        expenseTitle: adjustment.expense.title,
+        debtorMemberId: adjustment.debtorMemberId,
+        creditorMemberId: adjustment.creditorMemberId,
+        amountCents: adjustment.amountCents,
+        status: adjustment.status,
+        settledByMemberId: adjustment.settledByMemberId,
+        createdAt: adjustment.createdAt,
+        settledAt: adjustment.settledAt,
       });
       movementsByAccount.set(accountId, movements);
     }

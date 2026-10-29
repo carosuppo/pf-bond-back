@@ -3,6 +3,7 @@ import type { ExpenseSplitType } from '@prisma/client';
 export class ExpenseShareResponseDto {
   memberId!: number;
   amountCents!: number;
+  isCurrent!: boolean;
 }
 
 export class ExpenseResponseDto {
@@ -12,6 +13,9 @@ export class ExpenseResponseDto {
   amountCents!: number;
   splitType!: ExpenseSplitType;
   payerMemberId!: number;
+  createdByUserId!: number | null;
+  lastEditedByUserId!: number | null;
+  lastEditedAt!: Date | null;
   shares!: ExpenseShareResponseDto[];
   createdAt!: Date;
 }

@@ -18,6 +18,12 @@ enum ExpenseSplitType {
   CUSTOM
 }
 
+enum ExpenseAdjustmentStatus {
+  PENDING
+  PAID
+  CANCELED
+}
+
 // Models
 enum NotificationType {
   POINT_OF_INTEREST_CREATED
@@ -61,6 +67,8 @@ model User {
   sessions UserSession[]
   devicePushTokens DevicePushToken[]
   createdExpenseAccounts ExpenseAccount[] @relation("ExpenseAccountCreator")
+  createdExpenses Expense[] @relation("ExpenseCreator")
+  lastEditedExpenses Expense[] @relation("ExpenseLastEditor")
 
   emailVerifiedAt         DateTime?
   emailVerificationTokens EmailVerificationToken[]
@@ -152,6 +160,9 @@ model Member {
   expenseShares ExpenseShare[] @relation("ExpenseShareMember")
   sentExpensePayments ExpensePayment[] @relation("ExpensePaymentSender")
   receivedExpensePayments ExpensePayment[] @relation("ExpensePaymentRecipient")
+  debtorExpenseAdjustments ExpenseAdjustment[] @relation("ExpenseAdjustmentDebtor")
+  creditorExpenseAdjustments ExpenseAdjustment[] @relation("ExpenseAdjustmentCreditor")
+  settledExpenseAdjustments ExpenseAdjustment[] @relation("ExpenseAdjustmentSettledBy")
 
   @@unique([userId, groupId])
 }
@@ -245,6 +256,9 @@ model Expense {
   id               Int              @id @default(autoincrement())
   expenseAccountId Int
   payerMemberId    Int
+  createdByUserId  Int?
+  lastEditedByUserId Int?
+  lastEditedAt     DateTime?
   title            String?
   amountCents      Int
   splitType        ExpenseSplitType
@@ -254,8 +268,11 @@ model Expense {
 
   account ExpenseAccount @relation(fields: [expenseAccountId], references: [id], onDelete: Cascade)
   payer   Member         @relation("ExpensePayer", fields: [payerMemberId], references: [id], onDelete: Cascade)
+  createdBy User?        @relation("ExpenseCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lastEditedBy User?     @relation("ExpenseLastEditor", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
   shares  ExpenseShare[]
   payments ExpensePayment[]
+  adjustments ExpenseAdjustment[]
 
   @@index([expenseAccountId])
   @@index([payerMemberId])
@@ -266,13 +283,40 @@ model ExpenseShare {
   expenseId   Int
   memberId    Int
   amountCents Int
+  isCurrent   Boolean @default(true)
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   member  Member  @relation("ExpenseShareMember", fields: [memberId], references: [id], onDelete: Cascade)
   payment ExpensePayment?
+  adjustments ExpenseAdjustment[]
 
   @@unique([expenseId, memberId])
   @@index([memberId])
+}
+
+model ExpenseAdjustment {
+  id              Int                     @id @default(autoincrement())
+  expenseId       Int
+  expenseShareId  Int
+  debtorMemberId  Int
+  creditorMemberId Int
+  amountCents     Int
+  status          ExpenseAdjustmentStatus @default(PENDING)
+  settledByMemberId Int?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  settledAt       DateTime?
+
+  expense      Expense      @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  expenseShare ExpenseShare @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
+  debtor       Member       @relation("ExpenseAdjustmentDebtor", fields: [debtorMemberId], references: [id], onDelete: Restrict)
+  creditor     Member       @relation("ExpenseAdjustmentCreditor", fields: [creditorMemberId], references: [id], onDelete: Restrict)
+  settledBy    Member?      @relation("ExpenseAdjustmentSettledBy", fields: [settledByMemberId], references: [id], onDelete: Restrict)
+
+  @@index([expenseId, status])
+  @@index([expenseShareId, status])
+  @@index([debtorMemberId, status])
+  @@index([creditorMemberId, status])
 }
 
 model ExpensePayment {

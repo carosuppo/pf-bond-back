@@ -2,6 +2,7 @@ export interface ExpenseShareData {
   memberId: number;
   amountCents: number;
   isPaid?: boolean;
+  isCurrent?: boolean;
 }
 
 export interface ExpenseMovementData {
@@ -27,4 +28,20 @@ export interface PaymentMovementData {
   confirmedAt?: Date;
 }
 
-export type AccountMovementData = ExpenseMovementData | PaymentMovementData;
+export interface ExpenseAdjustmentMovementData {
+  kind: 'ADJUSTMENT';
+  id: number;
+  expenseId: number;
+  expenseShareId: number;
+  expenseTitle: string | null;
+  debtorMemberId: number;
+  creditorMemberId: number;
+  amountCents: number;
+  status: 'PENDING' | 'PAID' | 'CANCELED';
+  settledByMemberId: number | null;
+  createdAt: Date;
+  settledAt: Date | null;
+}
+
+export type AccountMovementData =
+  ExpenseMovementData | PaymentMovementData | ExpenseAdjustmentMovementData;
