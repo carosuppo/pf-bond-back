@@ -1,7 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
   Param,
   ParseIntPipe,
   Post,
@@ -18,6 +22,7 @@ import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
 import { PendingExpenseShareResponseDto } from './dto/pending-expense-share-response.dto';
 import { RegisterExpensePaymentsDto } from './dto/register-expense-payments.dto';
+import { UpdateExpenseAccountDto } from './dto/update-expense-account.dto';
 import { ExpenseAccountService } from './expense-account.service';
 
 @UseGuards(SessionAuthGuard)
@@ -31,6 +36,24 @@ export class ExpenseAccountController {
     @CurrentUser() userId: number,
   ): Promise<ExpenseAccountResponseDto> {
     return this.expenseAccountService.createExpenseAccount(dto, userId);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateExpenseAccountDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpenseAccountResponseDto> {
+    return this.expenseAccountService.updateExpenseAccount(id, dto, userId);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<void> {
+    return this.expenseAccountService.deleteExpenseAccount(id, userId);
   }
 
   @Get()

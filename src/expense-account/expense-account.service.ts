@@ -9,9 +9,11 @@ import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
 import { PendingExpenseShareResponseDto } from './dto/pending-expense-share-response.dto';
 import { RegisterExpensePaymentsDto } from './dto/register-expense-payments.dto';
+import { UpdateExpenseAccountDto } from './dto/update-expense-account.dto';
 import { splitEqually } from './balance/expense-split.helper';
 import type { CreateExpenseAccountData } from './interface/create-expense-account.interface';
 import type { CreateExpenseData } from './interface/create-expense.interface';
+import type { UpdateExpenseAccountData } from './interface/update-expense-account.interface';
 import { ExpenseAccountMapper } from './mapper/expense-account.mapper';
 import type { IExpenseAccountRepository } from './repository/expense-account.repository.interface';
 import { ExpenseAccountValidator } from './validator/expense-account.validator';
@@ -70,6 +72,49 @@ export class ExpenseAccountService {
     );
 
     return ExpenseAccountMapper.toResponse(createdExpenseAccount);
+  }
+
+  async updateExpenseAccount(
+    accountId: number,
+    dto: UpdateExpenseAccountDto,
+    userId: number,
+  ): Promise<ExpenseAccountResponseDto> {
+    if (dto.groupId !== undefined) {
+      throw new BadRequestException(
+        'No se puede cambiar el grupo de la cuenta.',
+      );
+    }
+
+    if (
+      dto.name === undefined &&
+      dto.memberIds === undefined &&
+      dto.eventId === undefined
+    ) {
+      throw new BadRequestException(
+        'Debes indicar al menos un dato de la cuenta para actualizar.',
+      );
+    }
+
+    const data: UpdateExpenseAccountData = {
+      ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
+      ...(dto.memberIds === undefined ? {} : { memberIds: dto.memberIds }),
+      ...(dto.eventId === undefined ? {} : { eventId: dto.eventId }),
+    };
+    const updatedAccount =
+      await this.expenseAccountRepository.updateExpenseAccount(
+        accountId,
+        userId,
+        data,
+      );
+
+    return ExpenseAccountMapper.toResponse(updatedAccount);
+  }
+
+  deleteExpenseAccount(accountId: number, userId: number): Promise<void> {
+    return this.expenseAccountRepository.deleteExpenseAccount(
+      accountId,
+      userId,
+    );
   }
 
   async getMyAccounts(userId: number): Promise<MyExpenseAccountResponseDto[]> {

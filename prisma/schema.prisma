@@ -60,6 +60,7 @@ model User {
   members  Member[]
   sessions UserSession[]
   devicePushTokens DevicePushToken[]
+  createdExpenseAccounts ExpenseAccount[] @relation("ExpenseAccountCreator")
 
   emailVerifiedAt         DateTime?
   emailVerificationTokens EmailVerificationToken[]
@@ -212,14 +213,17 @@ model ExpenseAccount {
   name      String
   groupId   Int
   eventId   Int?
+  createdByUserId Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
-  group   Group  @relation(fields: [groupId], references: [id])
-  event   Event? @relation(fields: [eventId], references: [id])
-  members ExpenseAccountMember[]
-  expenses Expense[]
+  group     Group  @relation(fields: [groupId], references: [id])
+  event     Event? @relation(fields: [eventId], references: [id])
+  createdBy User?  @relation("ExpenseAccountCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  members   ExpenseAccountMember[]
+  expenses  Expense[]
 
   @@index([groupId])
   @@index([eventId])

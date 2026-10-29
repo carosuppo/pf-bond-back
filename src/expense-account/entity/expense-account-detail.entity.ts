@@ -4,6 +4,7 @@ export interface ExpenseAccountDetailEntity {
   id: number;
   name: string;
   groupId: number;
+  createdByUserId: number | null;
   groupName: string;
   eventId: number | null;
   eventName: string | null;

@@ -80,6 +80,7 @@ export class ExpenseAccountMapper {
       id: account.id,
       name: account.name,
       groupId: account.groupId,
+      createdByUserId: account.createdByUserId,
       groupName: account.groupName,
       eventId: account.eventId,
       eventName: account.eventName,

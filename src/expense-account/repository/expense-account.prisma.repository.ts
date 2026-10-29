@@ -3,9 +3,14 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, RoleEnum } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  calculateDebtsOfMember,
+  calculateDebtsToMember,
+} from '../balance/expense-account-balance.calculator';
 import {
   ExpenseAccountDetailEntity,
   MyExpenseAccountData,
@@ -19,6 +24,7 @@ import {
 import type { AccountMovementData } from '../interface/account-movement.interface';
 import { CreateExpenseAccountData } from '../interface/create-expense-account.interface';
 import { CreateExpenseData } from '../interface/create-expense.interface';
+import type { UpdateExpenseAccountData } from '../interface/update-expense-account.interface';
 import {
   ExpenseEventForValidation,
   IExpenseAccountRepository,
@@ -50,6 +56,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
           name: data.name,
           groupId,
           eventId: data.eventId ?? null,
+          createdByUserId: userId,
           members: {
             create: memberIds.map((memberId) => ({
               memberId,
@@ -73,6 +80,261 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     });
   }
 
+  async updateExpenseAccount(
+    accountId: number,
+    userId: number,
+    data: UpdateExpenseAccountData,
+  ): Promise<ExpenseAccountEntity> {
+    try {
+      return await this.prismaService.$transaction(
+        async (tx) => {
+          await this.lockActiveAccount(tx, accountId);
+          const account = await tx.expenseAccount.findUnique({
+            where: { id: accountId },
+            include: {
+              members: {
+                include: { member: { select: { userId: true } } },
+              },
+            },
+          });
+
+          if (!account) {
+            throw new NotFoundException('La cuenta no existe.');
+          }
+
+          if (!account.members.some((item) => item.member.userId === userId)) {
+            throw new ForbiddenException('No estás asociado a esta cuenta.');
+          }
+
+          const currentMemberIds = account.members.map((item) => item.memberId);
+          const finalMemberIds = data.memberIds ?? currentMemberIds;
+
+          if (finalMemberIds.length === 0) {
+            throw new BadRequestException(
+              'La cuenta debe conservar al menos un miembro.',
+            );
+          }
+
+          if (new Set(finalMemberIds).size !== finalMemberIds.length) {
+            throw new BadRequestException(
+              'No puedes repetir miembros en la cuenta.',
+            );
+          }
+
+          const groupMemberRows = await tx.member.findMany({
+            where: {
+              id: { in: finalMemberIds },
+              groupId: account.groupId,
+            },
+            select: { id: true },
+          });
+          const groupMemberIds = new Set(
+            groupMemberRows.map((member) => member.id),
+          );
+          const invalidMemberIds = finalMemberIds.filter(
+            (memberId) => !groupMemberIds.has(memberId),
+          );
+
+          if (invalidMemberIds.length > 0) {
+            throw new BadRequestException(
+              `Los siguientes miembros no pertenecen al grupo de la cuenta: ${invalidMemberIds.join(', ')}`,
+            );
+          }
+
+          const finalEventId =
+            data.eventId === undefined ? account.eventId : data.eventId;
+          if (finalEventId !== null) {
+            const event = await tx.event.findUnique({
+              where: { id: finalEventId },
+              select: { id: true, groupId: true, deletedAt: true },
+            });
+
+            if (!event || (data.eventId !== undefined && event.deletedAt)) {
+              throw new NotFoundException('El evento no existe.');
+            }
+
+            if (event.groupId !== account.groupId) {
+              throw new BadRequestException(
+                'El evento pertenece a otro grupo.',
+              );
+            }
+
+            const eventMembers = await tx.eventMember.findMany({
+              where: {
+                eventId: finalEventId,
+                memberId: { in: finalMemberIds },
+              },
+              select: { memberId: true },
+            });
+            const eventMemberIds = new Set(
+              eventMembers.map((member) => member.memberId),
+            );
+            const invalidEventMemberIds = finalMemberIds.filter(
+              (memberId) => !eventMemberIds.has(memberId),
+            );
+
+            if (invalidEventMemberIds.length > 0) {
+              throw new BadRequestException(
+                `Los siguientes miembros no pertenecen al evento: ${invalidEventMemberIds.join(', ')}`,
+              );
+            }
+          }
+
+          const finalMemberIdSet = new Set(finalMemberIds);
+          const removedMemberIds = currentMemberIds.filter(
+            (memberId) => !finalMemberIdSet.has(memberId),
+          );
+
+          if (removedMemberIds.length > 0) {
+            const movementsByAccount = await this.findMovementsByAccountIds(
+              [accountId],
+              tx,
+            );
+            const movements = movementsByAccount.get(accountId) ?? [];
+            const membersWithDebts = removedMemberIds.filter(
+              (memberId) =>
+                calculateDebtsToMember(movements, memberId).length > 0 ||
+                calculateDebtsOfMember(movements, memberId).length > 0,
+            );
+
+            if (membersWithDebts.length > 0) {
+              throw new BadRequestException({
+                message:
+                  'No se pueden quitar miembros que tengan obligaciones pendientes en la cuenta.',
+                memberIds: membersWithDebts,
+              });
+            }
+          }
+
+          await tx.expenseAccount.update({
+            where: { id: accountId },
+            data: {
+              ...(data.name === undefined ? {} : { name: data.name }),
+              ...(data.eventId === undefined ? {} : { eventId: data.eventId }),
+            },
+          });
+
+          if (removedMemberIds.length > 0) {
+            await tx.expenseAccountMember.deleteMany({
+              where: {
+                expenseAccountId: accountId,
+                memberId: { in: removedMemberIds },
+              },
+            });
+          }
+
+          const addedMemberIds = finalMemberIds.filter(
+            (memberId) => !currentMemberIds.includes(memberId),
+          );
+          if (addedMemberIds.length > 0) {
+            await tx.expenseAccountMember.createMany({
+              data: addedMemberIds.map((memberId) => ({
+                expenseAccountId: accountId,
+                memberId,
+              })),
+            });
+          }
+
+          const updatedAccount = await tx.expenseAccount.findUniqueOrThrow({
+            where: { id: accountId },
+            include: { members: { select: { memberId: true } } },
+          });
+
+          return {
+            id: updatedAccount.id,
+            name: updatedAccount.name,
+            groupId: updatedAccount.groupId,
+            eventId: updatedAccount.eventId,
+            memberIds: updatedAccount.members.map((member) => member.memberId),
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2002' || error.code === 'P2034')
+      ) {
+        throw new ConflictException(
+          'La cuenta cambió durante la edición. Volvé a cargarla e intentá nuevamente.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  async deleteExpenseAccount(accountId: number, userId: number): Promise<void> {
+    try {
+      await this.prismaService.$transaction(
+        async (tx) => {
+          await this.lockActiveAccount(tx, accountId);
+          const account = await tx.expenseAccount.findUniqueOrThrow({
+            where: { id: accountId },
+            select: {
+              id: true,
+              groupId: true,
+              createdByUserId: true,
+              members: { select: { memberId: true } },
+            },
+          });
+
+          const requester = await tx.member.findUnique({
+            where: {
+              userId_groupId: {
+                userId,
+                groupId: account.groupId,
+              },
+            },
+            select: { role: true },
+          });
+          const isCreator = account.createdByUserId === userId;
+          const isGroupAdmin = requester?.role === RoleEnum.ADMIN;
+
+          if (!isCreator && !isGroupAdmin) {
+            throw new ForbiddenException(
+              'Solo el creador de la cuenta o un administrador del grupo puede eliminarla.',
+            );
+          }
+
+          const movementsByAccount = await this.findMovementsByAccountIds(
+            [accountId],
+            tx,
+          );
+          const movements = movementsByAccount.get(accountId) ?? [];
+          const hasPendingObligations = account.members.some(
+            ({ memberId }) =>
+              calculateDebtsOfMember(movements, memberId).length > 0 ||
+              calculateDebtsToMember(movements, memberId).length > 0,
+          );
+
+          if (hasPendingObligations) {
+            throw new BadRequestException(
+              'No se puede eliminar una cuenta con obligaciones pendientes de pago o cobro.',
+            );
+          }
+
+          // ExpensePayment.confirmedAt is required and defaults to now, so the
+          // current data model has no unconfirmed-payment state to validate.
+          await tx.expenseAccount.update({
+            where: { id: accountId },
+            data: { deletedAt: new Date() },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        throw new ConflictException(
+          'La cuenta cambió durante la eliminación. Volvé a cargarla e intentá nuevamente.',
+        );
+      }
+      throw error;
+    }
+  }
+
   async findEventById(
     eventId: number,
   ): Promise<ExpenseEventForValidation | null> {
@@ -94,6 +356,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
   async findAccountsByUserId(userId: number): Promise<MyExpenseAccountData[]> {
     const accounts = await this.prismaService.expenseAccount.findMany({
       where: {
+        deletedAt: null,
         members: {
           some: {
             member: { userId },
@@ -130,6 +393,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
         id: account.id,
         name: account.name,
         groupId: account.groupId,
+        createdByUserId: account.createdByUserId,
         groupName: account.group.name,
         eventId: account.eventId,
         eventName: account.event?.name ?? null,
@@ -143,8 +407,8 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
   async findAccountById(
     accountId: number,
   ): Promise<ExpenseAccountDetailEntity | null> {
-    const account = await this.prismaService.expenseAccount.findUnique({
-      where: { id: accountId },
+    const account = await this.prismaService.expenseAccount.findFirst({
+      where: { id: accountId, deletedAt: null },
       include: {
         members: { select: { memberId: true } },
         group: { select: { name: true } },
@@ -162,6 +426,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
       id: account.id,
       name: account.name,
       groupId: account.groupId,
+      createdByUserId: account.createdByUserId,
       groupName: account.group.name,
       eventId: account.eventId,
       eventName: account.event?.name ?? null,
@@ -174,24 +439,42 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     data: CreateExpenseData,
     accountId: number,
   ): Promise<ExpenseEntity> {
-    const expense = await this.prismaService.expense.create({
-      data: {
-        expenseAccountId: accountId,
-        payerMemberId: data.payerMemberId,
-        title: data.title ?? null,
-        amountCents: data.amountCents,
-        splitType: data.splitType,
-        shares: {
-          create: data.shares.map((share) => ({
-            memberId: share.memberId,
-            amountCents: share.amountCents,
-          })),
+    const expense = await this.prismaService
+      .$transaction(
+        async (tx) => {
+          await this.lockActiveAccount(tx, accountId);
+          return tx.expense.create({
+            data: {
+              expenseAccountId: accountId,
+              payerMemberId: data.payerMemberId,
+              title: data.title ?? null,
+              amountCents: data.amountCents,
+              splitType: data.splitType,
+              shares: {
+                create: data.shares.map((share) => ({
+                  memberId: share.memberId,
+                  amountCents: share.amountCents,
+                })),
+              },
+            },
+            include: {
+              shares: true,
+            },
+          });
         },
-      },
-      include: {
-        shares: true,
-      },
-    });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      )
+      .catch((error: unknown) => {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2034'
+        ) {
+          throw new ConflictException(
+            'La cuenta cambió durante el registro del gasto. Volvé a cargarla e intentá nuevamente.',
+          );
+        }
+        throw error;
+      });
 
     return {
       id: expense.id,
@@ -220,6 +503,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
         expense: {
           expenseAccountId: accountId,
           payerMemberId: { not: memberId },
+          account: { deletedAt: null },
         },
       },
       select: {
@@ -255,6 +539,7 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     try {
       return await this.prismaService.$transaction(
         async (tx) => {
+          await this.lockActiveAccount(tx, accountId);
           const accountMember = await tx.expenseAccountMember.findUnique({
             where: {
               expenseAccountId_memberId: {
@@ -279,12 +564,16 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
                     expense: {
                       expenseAccountId: accountId,
                       payerMemberId: { not: memberId },
+                      account: { deletedAt: null },
                     },
                   }
                 : {
                     id: { in: expenseShareIds },
                     memberId,
-                    expense: { expenseAccountId: accountId },
+                    expense: {
+                      expenseAccountId: accountId,
+                      account: { deletedAt: null },
+                    },
                   },
             include: {
               expense: { select: { payerMemberId: true } },
@@ -371,14 +660,18 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
 
   private async findMovementsByAccountIds(
     accountIds: number[],
+    client: Prisma.TransactionClient = this.prismaService,
   ): Promise<Map<number, AccountMovementData[]>> {
     if (accountIds.length === 0) {
       return new Map();
     }
 
     const [expenses, payments] = await Promise.all([
-      this.prismaService.expense.findMany({
-        where: { expenseAccountId: { in: accountIds } },
+      client.expense.findMany({
+        where: {
+          expenseAccountId: { in: accountIds },
+          account: { deletedAt: null },
+        },
         include: {
           shares: {
             select: {
@@ -390,8 +683,13 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
         },
         orderBy: { createdAt: 'asc' },
       }),
-      this.prismaService.expensePayment.findMany({
-        where: { expense: { expenseAccountId: { in: accountIds } } },
+      client.expensePayment.findMany({
+        where: {
+          expense: {
+            expenseAccountId: { in: accountIds },
+            account: { deletedAt: null },
+          },
+        },
         include: {
           expense: {
             select: { expenseAccountId: true, title: true },
@@ -445,5 +743,18 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     }
 
     return movementsByAccount;
+  }
+
+  private async lockActiveAccount(
+    tx: Prisma.TransactionClient,
+    accountId: number,
+  ): Promise<void> {
+    const accounts = await tx.$queryRaw<
+      { id: number; deletedAt: Date | null }[]
+    >`SELECT "id", "deletedAt" FROM "ExpenseAccount" WHERE "id" = ${accountId} FOR UPDATE`;
+
+    if (accounts.length === 0 || accounts[0].deletedAt !== null) {
+      throw new NotFoundException('La cuenta no existe.');
+    }
   }
 }

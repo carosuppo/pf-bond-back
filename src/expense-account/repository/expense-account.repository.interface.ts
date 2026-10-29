@@ -10,6 +10,7 @@ import {
 } from '../entity/expense-payment.entity';
 import { CreateExpenseAccountData } from '../interface/create-expense-account.interface';
 import { CreateExpenseData } from '../interface/create-expense.interface';
+import { UpdateExpenseAccountData } from '../interface/update-expense-account.interface';
 import type { AccountMovementData } from '../interface/account-movement.interface';
 
 export interface ExpenseEventForValidation {
@@ -23,6 +24,11 @@ export interface IExpenseAccountRepository {
     data: CreateExpenseAccountData,
     groupId: number,
     userId: number,
+  ): Promise<ExpenseAccountEntity>;
+  updateExpenseAccount(
+    accountId: number,
+    userId: number,
+    data: UpdateExpenseAccountData,
   ): Promise<ExpenseAccountEntity>;
   findEventById(eventId: number): Promise<ExpenseEventForValidation | null>;
   findEventMemberIds(eventId: number): Promise<number[]>;
@@ -43,5 +49,6 @@ export interface IExpenseAccountRepository {
     memberId: number,
     expenseShareIds: number[] | null,
   ): Promise<ExpensePaymentEntity[]>;
+  deleteExpenseAccount(accountId: number, userId: number): Promise<void>;
   findMovementsByAccountId(accountId: number): Promise<AccountMovementData[]>;
 }
