@@ -27,7 +27,8 @@ export function toBalanceStatus(balanceCents: number): BalanceStatus {
 
 /**
  * Calcula el saldo neto de cada miembro: lo pagado menos lo que le
- * corresponde aportar, más lo cobrado menos lo pagado en pagos directos.
+ * corresponde aportar. Las participaciones pagadas dejan de generar deuda;
+ * sus pagos vinculados se conservan como historial y no vuelven a descontarse.
  * Un saldo positivo significa que el miembro tiene importe a favor.
  */
 export function calculateBalances(
@@ -40,28 +41,22 @@ export function calculateBalances(
 
   for (const movement of movements) {
     if (movement.kind === 'EXPENSE') {
-      const total = movement.shares.reduce(
+      const pendingShares = movement.shares.filter(
+        (share) => !share.isPaid && share.memberId !== movement.payerMemberId,
+      );
+      const totalPending = pendingShares.reduce(
         (sum, share) => sum + share.amountCents,
         0,
       );
-      const payerShare =
-        movement.shares.find(
-          (share) => share.memberId === movement.payerMemberId,
-        )?.amountCents ?? 0;
 
       if (balances.has(movement.payerMemberId)) {
         balances.set(
           movement.payerMemberId,
-          (balances.get(movement.payerMemberId) as number) +
-            (total - payerShare),
+          (balances.get(movement.payerMemberId) as number) + totalPending,
         );
       }
 
-      for (const share of movement.shares) {
-        if (share.memberId === movement.payerMemberId) {
-          continue;
-        }
-
+      for (const share of pendingShares) {
         if (balances.has(share.memberId)) {
           balances.set(
             share.memberId,
@@ -70,6 +65,13 @@ export function calculateBalances(
         }
       }
     } else {
+      // Linked payments settle one participation, which is already excluded
+      // from the pending expense shares above. Applying them here as well
+      // would discount unrelated debts between the same members.
+      if (movement.expenseShareId !== undefined) {
+        continue;
+      }
+
       if (balances.has(movement.fromMemberId)) {
         balances.set(
           movement.fromMemberId,
@@ -116,7 +118,7 @@ export function calculateDebtsToMember(
       }
 
       for (const share of movement.shares) {
-        if (share.memberId === memberId) {
+        if (share.memberId === memberId || share.isPaid) {
           continue;
         }
 
@@ -126,6 +128,10 @@ export function calculateDebtsToMember(
         );
       }
     } else if (movement.toMemberId === memberId) {
+      if (movement.expenseShareId !== undefined) {
+        continue;
+      }
+
       owed.set(
         movement.fromMemberId,
         (owed.get(movement.fromMemberId) ?? 0) - movement.amountCents,
@@ -159,7 +165,7 @@ export function calculateDebtsOfMember(
       }
 
       const share = movement.shares.find(
-        (candidate) => candidate.memberId === memberId,
+        (candidate) => candidate.memberId === memberId && !candidate.isPaid,
       );
 
       if (!share) {
@@ -171,6 +177,10 @@ export function calculateDebtsOfMember(
         (owed.get(movement.payerMemberId) ?? 0) + share.amountCents,
       );
     } else if (movement.fromMemberId === memberId) {
+      if (movement.expenseShareId !== undefined) {
+        continue;
+      }
+
       owed.set(
         movement.toMemberId,
         (owed.get(movement.toMemberId) ?? 0) - movement.amountCents,

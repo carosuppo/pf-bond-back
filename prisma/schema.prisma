@@ -149,6 +149,8 @@ model Member {
   expenseAccountMembers ExpenseAccountMember[]
   paidExpenses Expense[] @relation("ExpensePayer")
   expenseShares ExpenseShare[] @relation("ExpenseShareMember")
+  sentExpensePayments ExpensePayment[] @relation("ExpensePaymentSender")
+  receivedExpensePayments ExpensePayment[] @relation("ExpensePaymentRecipient")
 
   @@unique([userId, groupId])
 }
@@ -249,6 +251,7 @@ model Expense {
   account ExpenseAccount @relation(fields: [expenseAccountId], references: [id], onDelete: Cascade)
   payer   Member         @relation("ExpensePayer", fields: [payerMemberId], references: [id], onDelete: Cascade)
   shares  ExpenseShare[]
+  payments ExpensePayment[]
 
   @@index([expenseAccountId])
   @@index([payerMemberId])
@@ -262,9 +265,30 @@ model ExpenseShare {
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   member  Member  @relation("ExpenseShareMember", fields: [memberId], references: [id], onDelete: Cascade)
+  payment ExpensePayment?
 
   @@unique([expenseId, memberId])
   @@index([memberId])
+}
+
+model ExpensePayment {
+  id              Int      @id @default(autoincrement())
+  expenseId       Int
+  expenseShareId  Int      @unique
+  fromMemberId    Int
+  toMemberId      Int
+  amountCents     Int
+  createdAt       DateTime @default(now())
+  confirmedAt     DateTime @default(now())
+
+  expense      Expense      @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  expenseShare ExpenseShare @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
+  fromMember   Member       @relation("ExpensePaymentSender", fields: [fromMemberId], references: [id], onDelete: Restrict)
+  toMember     Member       @relation("ExpensePaymentRecipient", fields: [toMemberId], references: [id], onDelete: Restrict)
+
+  @@index([expenseId])
+  @@index([fromMemberId])
+  @@index([toMemberId])
 }
 
 model Reminder {

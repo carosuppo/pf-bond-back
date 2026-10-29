@@ -1,6 +1,7 @@
 export interface ExpenseShareData {
   memberId: number;
   amountCents: number;
+  isPaid?: boolean;
 }
 
 export interface ExpenseMovementData {
@@ -20,6 +21,10 @@ export interface PaymentMovementData {
   fromMemberId: number;
   toMemberId: number;
   createdAt: Date;
+  expenseId?: number;
+  expenseShareId?: number;
+  expenseTitle?: string | null;
+  confirmedAt?: Date;
 }
 
 export type AccountMovementData = ExpenseMovementData | PaymentMovementData;

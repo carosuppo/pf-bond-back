@@ -4,8 +4,11 @@ import { CreateExpenseAccountDto } from './dto/create-expense-account.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ExpenseAccountDetailResponseDto } from './dto/expense-account-detail-response.dto';
 import { ExpenseAccountResponseDto } from './dto/expense-account-response.dto';
+import { ExpensePaymentResponseDto } from './dto/expense-payment-response.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
+import { PendingExpenseShareResponseDto } from './dto/pending-expense-share-response.dto';
+import { RegisterExpensePaymentsDto } from './dto/register-expense-payments.dto';
 import { splitEqually } from './balance/expense-split.helper';
 import type { CreateExpenseAccountData } from './interface/create-expense-account.interface';
 import type { CreateExpenseData } from './interface/create-expense.interface';
@@ -151,5 +154,67 @@ export class ExpenseAccountService {
     );
 
     return ExpenseAccountMapper.toExpenseResponse(createdExpense);
+  }
+
+  async getPendingExpenseShares(
+    accountId: number,
+    userId: number,
+  ): Promise<PendingExpenseShareResponseDto[]> {
+    const { member } =
+      await this.expenseAccountValidator.requireAccountMembership(
+        accountId,
+        userId,
+      );
+    const shares = await this.expenseAccountRepository.findPendingExpenseShares(
+      accountId,
+      member.id,
+    );
+
+    return shares.map((share) =>
+      ExpenseAccountMapper.toPendingExpenseShareResponse(share),
+    );
+  }
+
+  async registerExpensePayments(
+    accountId: number,
+    userId: number,
+    dto: RegisterExpensePaymentsDto,
+  ): Promise<ExpensePaymentResponseDto[]> {
+    const { member } =
+      await this.expenseAccountValidator.requireAccountMembership(
+        accountId,
+        userId,
+      );
+    const payments =
+      await this.expenseAccountRepository.registerExpensePayments(
+        accountId,
+        member.id,
+        dto.expenseShareIds,
+      );
+
+    return payments.map((payment) =>
+      ExpenseAccountMapper.toExpensePaymentResponse(payment),
+    );
+  }
+
+  async registerAllExpensePayments(
+    accountId: number,
+    userId: number,
+  ): Promise<ExpensePaymentResponseDto[]> {
+    const { member } =
+      await this.expenseAccountValidator.requireAccountMembership(
+        accountId,
+        userId,
+      );
+    const payments =
+      await this.expenseAccountRepository.registerExpensePayments(
+        accountId,
+        member.id,
+        null,
+      );
+
+    return payments.map((payment) =>
+      ExpenseAccountMapper.toExpensePaymentResponse(payment),
+    );
   }
 }

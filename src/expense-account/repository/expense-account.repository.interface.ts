@@ -4,6 +4,10 @@ import {
   MyExpenseAccountData,
 } from '../entity/expense-account-detail.entity';
 import { ExpenseEntity } from '../entity/expense.entity';
+import {
+  ExpensePaymentEntity,
+  PendingExpenseShareEntity,
+} from '../entity/expense-payment.entity';
 import { CreateExpenseAccountData } from '../interface/create-expense-account.interface';
 import { CreateExpenseData } from '../interface/create-expense.interface';
 import type { AccountMovementData } from '../interface/account-movement.interface';
@@ -30,5 +34,14 @@ export interface IExpenseAccountRepository {
     data: CreateExpenseData,
     accountId: number,
   ): Promise<ExpenseEntity>;
+  findPendingExpenseShares(
+    accountId: number,
+    memberId: number,
+  ): Promise<PendingExpenseShareEntity[]>;
+  registerExpensePayments(
+    accountId: number,
+    memberId: number,
+    expenseShareIds: number[] | null,
+  ): Promise<ExpensePaymentEntity[]>;
   findMovementsByAccountId(accountId: number): Promise<AccountMovementData[]>;
 }

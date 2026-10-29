@@ -13,8 +13,11 @@ import { CreateExpenseAccountDto } from './dto/create-expense-account.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ExpenseAccountDetailResponseDto } from './dto/expense-account-detail-response.dto';
 import { ExpenseAccountResponseDto } from './dto/expense-account-response.dto';
+import { ExpensePaymentResponseDto } from './dto/expense-payment-response.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
+import { PendingExpenseShareResponseDto } from './dto/pending-expense-share-response.dto';
+import { RegisterExpensePaymentsDto } from './dto/register-expense-payments.dto';
 import { ExpenseAccountService } from './expense-account.service';
 
 @UseGuards(SessionAuthGuard)
@@ -52,5 +55,30 @@ export class ExpenseAccountController {
     @CurrentUser() userId: number,
   ): Promise<ExpenseResponseDto> {
     return this.expenseAccountService.createExpense(dto, id, userId);
+  }
+
+  @Get(':id/pending-shares')
+  getPendingShares(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<PendingExpenseShareResponseDto[]> {
+    return this.expenseAccountService.getPendingExpenseShares(id, userId);
+  }
+
+  @Post(':id/payments')
+  registerPayments(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RegisterExpensePaymentsDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpensePaymentResponseDto[]> {
+    return this.expenseAccountService.registerExpensePayments(id, userId, dto);
+  }
+
+  @Post(':id/payments/all')
+  registerAllPayments(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<ExpensePaymentResponseDto[]> {
+    return this.expenseAccountService.registerAllExpensePayments(id, userId);
   }
 }

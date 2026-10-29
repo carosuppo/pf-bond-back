@@ -3,7 +3,13 @@ import { ExpenseAccountDetailResponseDto } from '../dto/expense-account-detail-r
 import { ExpenseAccountResponseDto } from '../dto/expense-account-response.dto';
 import { ExpenseResponseDto } from '../dto/expense-response.dto';
 import { MyExpenseAccountResponseDto } from '../dto/my-expense-account-response.dto';
+import { ExpensePaymentResponseDto } from '../dto/expense-payment-response.dto';
+import { PendingExpenseShareResponseDto } from '../dto/pending-expense-share-response.dto';
 import { ExpenseEntity } from '../entity/expense.entity';
+import {
+  ExpensePaymentEntity,
+  PendingExpenseShareEntity,
+} from '../entity/expense-payment.entity';
 import {
   calculateBalances,
   calculateDebtsOfMember,
@@ -98,5 +104,17 @@ export class ExpenseAccountMapper {
       shares: expense.shares,
       createdAt: expense.createdAt,
     };
+  }
+
+  static toPendingExpenseShareResponse(
+    share: PendingExpenseShareEntity,
+  ): PendingExpenseShareResponseDto {
+    return { ...share };
+  }
+
+  static toExpensePaymentResponse(
+    payment: ExpensePaymentEntity,
+  ): ExpensePaymentResponseDto {
+    return { ...payment };
   }
 }
