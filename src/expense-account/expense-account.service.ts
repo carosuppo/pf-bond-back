@@ -345,4 +345,18 @@ export class ExpenseAccountService {
       ExpenseAccountMapper.toExpensePaymentResponse(payment),
     );
   }
+
+  async annulExpensePayment(
+    accountId: number,
+    paymentId: number,
+    userId: number,
+  ): Promise<ExpensePaymentResponseDto> {
+    const payment = await this.expenseAccountRepository.annulExpensePayment(
+      accountId,
+      paymentId,
+      userId,
+    );
+
+    return ExpenseAccountMapper.toExpensePaymentResponse(payment);
+  }
 }

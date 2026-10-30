@@ -11,6 +11,7 @@ export interface ExpenseMovementData {
   title: string | null;
   amountCents: number;
   payerMemberId: number;
+  createdByUserId: number | null;
   shares: ExpenseShareData[];
   createdAt: Date;
 }
@@ -24,6 +25,7 @@ export interface PaymentMovementData {
   createdAt: Date;
   expenseId?: number;
   expenseShareId?: number;
+  adjustmentId?: number;
   expenseTitle?: string | null;
   confirmedAt?: Date;
 }

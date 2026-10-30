@@ -62,6 +62,11 @@ export interface IExpenseAccountRepository {
     expenseShareIds: number[] | null,
     adjustmentIds: number[] | null,
   ): Promise<ExpensePaymentEntity[]>;
+  annulExpensePayment(
+    accountId: number,
+    paymentId: number,
+    userId: number,
+  ): Promise<ExpensePaymentEntity>;
   deleteExpenseAccount(accountId: number, userId: number): Promise<void>;
   findMovementsByAccountId(accountId: number): Promise<AccountMovementData[]>;
 }

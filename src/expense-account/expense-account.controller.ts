@@ -129,4 +129,17 @@ export class ExpenseAccountController {
   ): Promise<ExpensePaymentResponseDto[]> {
     return this.expenseAccountService.registerAllExpensePayments(id, userId);
   }
+
+  @Patch(':accountId/payments/:paymentId/annul')
+  annulPayment(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Param('paymentId', ParseIntPipe) paymentId: number,
+    @CurrentUser() userId: number,
+  ): Promise<ExpensePaymentResponseDto> {
+    return this.expenseAccountService.annulExpensePayment(
+      accountId,
+      paymentId,
+      userId,
+    );
+  }
 }

@@ -53,28 +53,28 @@ enum SecurityAlertStatus {
 }
 
 model User {
-  notificationsEnabled Boolean @default(true)
-  id              Int       @id @default(autoincrement())
-  name            String
-  email           String    @unique
-  passwordHash    String
-  profilePhoto    String?   @db.Text
-  profilePhotoPath String?
-  currentLocation Location? @relation(fields: [locationId], references: [id])
-  locationId      Int?      @unique
+  notificationsEnabled Boolean   @default(true)
+  id                   Int       @id @default(autoincrement())
+  name                 String
+  email                String    @unique
+  passwordHash         String
+  profilePhoto         String?   @db.Text
+  profilePhotoPath     String?
+  currentLocation      Location? @relation(fields: [locationId], references: [id])
+  locationId           Int?      @unique
 
-  members  Member[]
-  sessions UserSession[]
-  devicePushTokens DevicePushToken[]
-  createdExpenseAccounts ExpenseAccount[] @relation("ExpenseAccountCreator")
-  createdExpenses Expense[] @relation("ExpenseCreator")
-  lastEditedExpenses Expense[] @relation("ExpenseLastEditor")
+  members                Member[]
+  sessions               UserSession[]
+  devicePushTokens       DevicePushToken[]
+  createdExpenseAccounts ExpenseAccount[]  @relation("ExpenseAccountCreator")
+  createdExpenses        Expense[]         @relation("ExpenseCreator")
+  lastEditedExpenses     Expense[]         @relation("ExpenseLastEditor")
 
   emailVerifiedAt         DateTime?
   emailVerificationTokens EmailVerificationToken[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DevicePushToken {
@@ -141,56 +141,56 @@ model Group {
 }
 
 model Member {
-  notificationsEnabled Boolean @default(true)
-  notificationPreferences MemberNotificationPreference[]
+  notificationsEnabled     Boolean                        @default(true)
+  notificationPreferences  MemberNotificationPreference[]
   pointOfInterestPresences PointOfInterestPresence[]
-  id                     Int      @id @default(autoincrement())
-  userId                 Int
-  groupId                Int
-  role                   RoleEnum
-  locationSharingEnabled Boolean  @default(false)
+  id                       Int                            @id @default(autoincrement())
+  userId                   Int
+  groupId                  Int
+  role                     RoleEnum
+  locationSharingEnabled   Boolean                        @default(false)
 
   group Group @relation(fields: [groupId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
 
-  eventMembers EventMember[]
-  eventReminders EventReminder[]
-  expenseAccountMembers ExpenseAccountMember[]
-  paidExpenses Expense[] @relation("ExpensePayer")
-  expenseShares ExpenseShare[] @relation("ExpenseShareMember")
-  sentExpensePayments ExpensePayment[] @relation("ExpensePaymentSender")
-  receivedExpensePayments ExpensePayment[] @relation("ExpensePaymentRecipient")
-  debtorExpenseAdjustments ExpenseAdjustment[] @relation("ExpenseAdjustmentDebtor")
-  creditorExpenseAdjustments ExpenseAdjustment[] @relation("ExpenseAdjustmentCreditor")
-  settledExpenseAdjustments ExpenseAdjustment[] @relation("ExpenseAdjustmentSettledBy")
+  eventMembers               EventMember[]
+  eventReminders             EventReminder[]
+  expenseAccountMembers      ExpenseAccountMember[]
+  paidExpenses               Expense[]              @relation("ExpensePayer")
+  expenseShares              ExpenseShare[]         @relation("ExpenseShareMember")
+  sentExpensePayments        ExpensePayment[]       @relation("ExpensePaymentSender")
+  receivedExpensePayments    ExpensePayment[]       @relation("ExpensePaymentRecipient")
+  debtorExpenseAdjustments   ExpenseAdjustment[]    @relation("ExpenseAdjustmentDebtor")
+  creditorExpenseAdjustments ExpenseAdjustment[]    @relation("ExpenseAdjustmentCreditor")
+  settledExpenseAdjustments  ExpenseAdjustment[]    @relation("ExpenseAdjustmentSettledBy")
 
   @@unique([userId, groupId])
 }
 
 model Event {
-  id              Int      @id @default(autoincrement())
-  name            String
-  description     String?
-  startAt         DateTime
-  endAt           DateTime?
-  groupId         Int
-  locationId      Int?
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  startAt     DateTime
+  endAt       DateTime?
+  groupId     Int
+  locationId  Int?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  group Group @relation(fields: [groupId], references: [id])
-  members EventMember[]
-  location Location? @relation(fields: [locationId], references: [id])
-  reminders EventReminder[]
+  group           Group            @relation(fields: [groupId], references: [id])
+  members         EventMember[]
+  location        Location?        @relation(fields: [locationId], references: [id])
+  reminders       EventReminder[]
   expenseAccounts ExpenseAccount[]
 }
 
 model EventMember {
-  id        Int @id @default(autoincrement())
-  eventId   Int
-  memberId  Int
+  id       Int @id @default(autoincrement())
+  eventId  Int
+  memberId Int
 
   event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -200,12 +200,12 @@ model EventMember {
 }
 
 model EventReminder {
-  id          Int       @id @default(autoincrement())
-  eventId     Int
-  memberId    Int
-  leadMinutes Int
-  remindAt    DateTime
-  sentAt      DateTime?
+  id               Int       @id @default(autoincrement())
+  eventId          Int
+  memberId         Int
+  leadMinutes      Int
+  remindAt         DateTime
+  sentAt           DateTime?
   utcOffsetMinutes Int?
 
   createdAt DateTime @default(now())
@@ -220,19 +220,19 @@ model EventReminder {
 }
 
 model ExpenseAccount {
-  id        Int      @id @default(autoincrement())
-  name      String
-  groupId   Int
-  eventId   Int?
+  id              Int    @id @default(autoincrement())
+  name            String
+  groupId         Int
+  eventId         Int?
   createdByUserId Int?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  group     Group  @relation(fields: [groupId], references: [id])
-  event     Event? @relation(fields: [eventId], references: [id])
-  createdBy User?  @relation("ExpenseAccountCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  group     Group                  @relation(fields: [groupId], references: [id])
+  event     Event?                 @relation(fields: [eventId], references: [id])
+  createdBy User?                  @relation("ExpenseAccountCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   members   ExpenseAccountMember[]
   expenses  Expense[]
 
@@ -253,41 +253,41 @@ model ExpenseAccountMember {
 }
 
 model Expense {
-  id               Int              @id @default(autoincrement())
-  expenseAccountId Int
-  payerMemberId    Int
-  createdByUserId  Int?
+  id                 Int              @id @default(autoincrement())
+  expenseAccountId   Int
+  payerMemberId      Int
+  createdByUserId    Int?
   lastEditedByUserId Int?
-  lastEditedAt     DateTime?
-  title            String?
-  amountCents      Int
-  splitType        ExpenseSplitType
+  lastEditedAt       DateTime?
+  title              String?
+  amountCents        Int
+  splitType          ExpenseSplitType
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  account ExpenseAccount @relation(fields: [expenseAccountId], references: [id], onDelete: Cascade)
-  payer   Member         @relation("ExpensePayer", fields: [payerMemberId], references: [id], onDelete: Cascade)
-  createdBy User?        @relation("ExpenseCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  lastEditedBy User?     @relation("ExpenseLastEditor", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
-  shares  ExpenseShare[]
-  payments ExpensePayment[]
-  adjustments ExpenseAdjustment[]
+  account      ExpenseAccount      @relation(fields: [expenseAccountId], references: [id], onDelete: Cascade)
+  payer        Member              @relation("ExpensePayer", fields: [payerMemberId], references: [id], onDelete: Cascade)
+  createdBy    User?               @relation("ExpenseCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lastEditedBy User?               @relation("ExpenseLastEditor", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
+  shares       ExpenseShare[]
+  payments     ExpensePayment[]
+  adjustments  ExpenseAdjustment[]
 
   @@index([expenseAccountId])
   @@index([payerMemberId])
 }
 
 model ExpenseShare {
-  id          Int @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   expenseId   Int
   memberId    Int
   amountCents Int
   isCurrent   Boolean @default(true)
 
-  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-  member  Member  @relation("ExpenseShareMember", fields: [memberId], references: [id], onDelete: Cascade)
-  payment ExpensePayment?
+  expense     Expense             @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member      Member              @relation("ExpenseShareMember", fields: [memberId], references: [id], onDelete: Cascade)
+  payment     ExpensePayment?
   adjustments ExpenseAdjustment[]
 
   @@unique([expenseId, memberId])
@@ -295,23 +295,24 @@ model ExpenseShare {
 }
 
 model ExpenseAdjustment {
-  id              Int                     @id @default(autoincrement())
-  expenseId       Int
-  expenseShareId  Int
-  debtorMemberId  Int
-  creditorMemberId Int
-  amountCents     Int
-  status          ExpenseAdjustmentStatus @default(PENDING)
+  id                Int                     @id @default(autoincrement())
+  expenseId         Int
+  expenseShareId    Int
+  debtorMemberId    Int
+  creditorMemberId  Int
+  amountCents       Int
+  status            ExpenseAdjustmentStatus @default(PENDING)
   settledByMemberId Int?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  settledAt       DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  settledAt         DateTime?
 
-  expense      Expense      @relation(fields: [expenseId], references: [id], onDelete: Restrict)
-  expenseShare ExpenseShare @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
-  debtor       Member       @relation("ExpenseAdjustmentDebtor", fields: [debtorMemberId], references: [id], onDelete: Restrict)
-  creditor     Member       @relation("ExpenseAdjustmentCreditor", fields: [creditorMemberId], references: [id], onDelete: Restrict)
-  settledBy    Member?      @relation("ExpenseAdjustmentSettledBy", fields: [settledByMemberId], references: [id], onDelete: Restrict)
+  expense      Expense         @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  expenseShare ExpenseShare    @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
+  debtor       Member          @relation("ExpenseAdjustmentDebtor", fields: [debtorMemberId], references: [id], onDelete: Restrict)
+  creditor     Member          @relation("ExpenseAdjustmentCreditor", fields: [creditorMemberId], references: [id], onDelete: Restrict)
+  settledBy    Member?         @relation("ExpenseAdjustmentSettledBy", fields: [settledByMemberId], references: [id], onDelete: Restrict)
+  payment      ExpensePayment?
 
   @@index([expenseId, status])
   @@index([expenseShareId, status])
@@ -320,21 +321,24 @@ model ExpenseAdjustment {
 }
 
 model ExpensePayment {
-  id              Int      @id @default(autoincrement())
-  expenseId       Int
-  expenseShareId  Int      @unique
-  fromMemberId    Int
-  toMemberId      Int
-  amountCents     Int
-  createdAt       DateTime @default(now())
-  confirmedAt     DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  expenseId      Int
+  expenseShareId Int?     @unique
+  adjustmentId   Int?     @unique
+  fromMemberId   Int
+  toMemberId     Int
+  amountCents    Int
+  createdAt      DateTime @default(now())
+  confirmedAt    DateTime @default(now())
 
-  expense      Expense      @relation(fields: [expenseId], references: [id], onDelete: Restrict)
-  expenseShare ExpenseShare @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
-  fromMember   Member       @relation("ExpensePaymentSender", fields: [fromMemberId], references: [id], onDelete: Restrict)
-  toMember     Member       @relation("ExpensePaymentRecipient", fields: [toMemberId], references: [id], onDelete: Restrict)
+  expense      Expense            @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  expenseShare ExpenseShare?      @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
+  adjustment   ExpenseAdjustment? @relation(fields: [adjustmentId], references: [id], onDelete: Restrict)
+  fromMember   Member             @relation("ExpensePaymentSender", fields: [fromMemberId], references: [id], onDelete: Restrict)
+  toMember     Member             @relation("ExpensePaymentRecipient", fields: [toMemberId], references: [id], onDelete: Restrict)
 
   @@index([expenseId])
+  @@index([adjustmentId])
   @@index([fromMemberId])
   @@index([toMemberId])
 }
@@ -370,15 +374,15 @@ enum PointOfInterestValidity {
 }
 
 model PointOfInterest {
-  color PointOfInterestColor @default(BLUE)
-  presences PointOfInterestPresence[]
-  id          Int       @id @default(autoincrement())
-  name        String
-  radius      Float
-  validity    PointOfInterestValidity @default(PERMANENT)
-  endTime     DateTime?
-  locationId  Int       @unique
-  groupId     Int
+  color      PointOfInterestColor      @default(BLUE)
+  presences  PointOfInterestPresence[]
+  id         Int                       @id @default(autoincrement())
+  name       String
+  radius     Float
+  validity   PointOfInterestValidity   @default(PERMANENT)
+  endTime    DateTime?
+  locationId Int                       @unique
+  groupId    Int
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -397,33 +401,33 @@ model Location {
   lastSeenAt      DateTime?
   user            User?
   pointOfInterest PointOfInterest?
-  events           Event[]
+  events          Event[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model MemberNotificationPreference {
-  id Int @id @default(autoincrement())
-  memberId Int
-  type NotificationType
-  enabled Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id        Int              @id @default(autoincrement())
+  memberId  Int
+  type      NotificationType
+  enabled   Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  member    Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, type])
 }
 
 model PointOfInterestPresence {
-  id Int @id @default(autoincrement())
-  memberId Int
+  id                Int             @id @default(autoincrement())
+  memberId          Int
   pointOfInterestId Int
-  isInside Boolean
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  pointOfInterest PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
+  isInside          Boolean
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  member            Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  pointOfInterest   PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, pointOfInterestId])
   @@index([pointOfInterestId])
