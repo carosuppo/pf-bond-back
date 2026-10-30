@@ -1,4 +1,5 @@
 export interface EventEntity {
+  recurrenceId?: number | null;
   id: number;
   name: string;
   description?: string | null;

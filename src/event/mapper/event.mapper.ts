@@ -7,6 +7,7 @@ export class EventMapper {
   static toResponse(event: EventEntity): EventResponseDto {
     return {
       id: event.id,
+      recurrenceId: event.recurrenceId,
       name: event.name,
       description: event.description,
       startAt: event.startAt,

@@ -1,3 +1,5 @@
+import { EventRecurrenceService } from './recurrence/event-recurrence.service';
+import { EventRecurrencePrismaRepository } from './recurrence/event-recurrence.prisma.repository';
 import { Module } from '@nestjs/common';
 import { GroupModule } from '../group/group.module';
 import { MemberModule } from '../member/member.module';
@@ -17,6 +19,11 @@ import { EventValidator } from './validator/event.validator';
   imports: [MemberModule, GroupModule, UserModule, NotificationModule],
   controllers: [EventController, EventReminderController],
   providers: [
+    EventRecurrenceService,
+    {
+      provide: 'eventRecurrenceRepository',
+      useClass: EventRecurrencePrismaRepository,
+    },
     EventService,
     EventReminderService,
     EventReminderScheduler,
