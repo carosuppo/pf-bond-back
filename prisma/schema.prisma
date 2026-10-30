@@ -119,6 +119,7 @@ model Group {
   invitationCode           String  @unique
 
   members          Member[]
+  eventRecurrences EventRecurrence[]
   events           Event[]
   pointsOfInterest PointOfInterest[]
   reminders        Reminder[]
@@ -188,12 +189,19 @@ model Member {
 
   eventMembers EventMember[]
   eventReminders EventReminder[]
+  recurrenceMembers EventRecurrenceMember[]
+  recurrenceReminders EventRecurrenceReminder[]
   expenseAccountMembers ExpenseAccountMember[]
 
   @@unique([userId, groupId])
 }
 
 model Event {
+  recurrenceId Int?
+  occurrenceAt DateTime?
+  recurrence EventRecurrence? @relation(fields: [recurrenceId], references: [id])
+  @@unique([recurrenceId, occurrenceAt])
+  @@index([groupId, startAt])
   id              Int      @id @default(autoincrement())
   name            String
   description     String?
@@ -392,4 +400,45 @@ model SecurityAlert {
   createdAt      DateTime            @default(now())
 
   @@index([type, correlationKey, createdAt])
+}
+
+enum EventRecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+model EventRecurrence {
+  id Int @id @default(autoincrement())
+  frequency EventRecurrenceFrequency
+  until DateTime?
+  startAt DateTime
+  endAt DateTime?
+  name String
+  description String?
+  groupId Int
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  members EventRecurrenceMember[]
+  reminders EventRecurrenceReminder[]
+  events Event[]
+  createdAt DateTime @default(now())
+  @@index([groupId])
+}
+model EventRecurrenceMember {
+  recurrenceId Int
+  memberId Int
+  recurrence EventRecurrence @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  @@id([recurrenceId, memberId])
+  @@index([memberId])
+}
+model EventRecurrenceReminder {
+  id Int @id @default(autoincrement())
+  recurrenceId Int
+  memberId Int
+  leadMinutes Int
+  utcOffsetMinutes Int?
+  recurrence EventRecurrence @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  @@unique([recurrenceId, memberId, leadMinutes])
+  @@index([memberId])
 }

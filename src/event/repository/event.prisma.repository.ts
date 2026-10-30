@@ -1,3 +1,4 @@
+import { calendarRange } from '../recurrence/recurrence-calendar';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventEntity } from '../entity/event.entity';
@@ -47,6 +48,7 @@ export class EventPrismaRepository implements IEventRepository {
 
       return {
         id: event.id,
+        recurrenceId: event.recurrenceId,
         name: event.name,
         description: event.description,
         startAt: event.startAt,
@@ -91,6 +93,7 @@ export class EventPrismaRepository implements IEventRepository {
 
       return {
         id: event.id,
+        recurrenceId: event.recurrenceId,
         name: event.name,
         description: event.description,
         startAt: event.startAt,
@@ -116,6 +119,7 @@ export class EventPrismaRepository implements IEventRepository {
 
     return {
       id: event.id,
+      recurrenceId: event.recurrenceId,
       name: event.name,
       description: event.description,
       startAt: event.startAt,
@@ -136,12 +140,7 @@ export class EventPrismaRepository implements IEventRepository {
     year: number,
     month?: number,
   ): Promise<EventEntity[]> {
-    const rangeStart =
-      month == null ? new Date(year, 0, 1) : new Date(year, month - 1, 1);
-    const rangeEnd =
-      month == null
-        ? new Date(year, 11, 31, 23, 59, 59, 999)
-        : new Date(year, month, 0, 23, 59, 59, 999);
+    const { from: rangeStart, through: rangeEnd } = calendarRange(year, month);
     const events = await this.prismaService.event.findMany({
       where: {
         deletedAt: null,
@@ -162,6 +161,7 @@ export class EventPrismaRepository implements IEventRepository {
     });
     return events.map((event) => ({
       id: event.id,
+      recurrenceId: event.recurrenceId,
       name: event.name,
       description: event.description,
       startAt: event.startAt,
@@ -192,6 +192,7 @@ export class EventPrismaRepository implements IEventRepository {
 
     return {
       id: event.id,
+      recurrenceId: event.recurrenceId,
       name: event.name,
       description: event.description,
       startAt: event.startAt,
@@ -241,6 +242,7 @@ export class EventPrismaRepository implements IEventRepository {
 
       return {
         id: updatedEvent.id,
+        recurrenceId: updatedEvent.recurrenceId,
         name: updatedEvent.name,
         description: updatedEvent.description,
         startAt: updatedEvent.startAt,

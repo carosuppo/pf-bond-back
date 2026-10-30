@@ -1,3 +1,4 @@
+import { EventRecurrenceService } from './recurrence/event-recurrence.service';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -31,6 +32,7 @@ export class EventService {
     private readonly eventValidator: EventValidator,
     private readonly eventEmitter: EventEmitter2,
     private readonly eventReminderService: EventReminderService,
+    private readonly recurrenceService: EventRecurrenceService,
   ) {}
 
   async createEvent(
@@ -56,11 +58,14 @@ export class EventService {
       memberIds,
     );
 
-    const createdEvent = await this.eventRepository.create(
-      persistenceData,
-      groupId,
-      userId,
-    );
+    const createdEvent = createEventDto.recurrence
+      ? await this.recurrenceService.create(
+          persistenceData,
+          createEventDto.recurrence,
+          groupId,
+          userId,
+        )
+      : await this.eventRepository.create(persistenceData, groupId, userId);
 
     this.eventEmitter.emit(
       EVENT_CREATED_EVENT,
@@ -83,6 +88,7 @@ export class EventService {
   ): Promise<EventResponseDto[]> {
     const member = await this.eventValidator.requireMembership(userId, groupId);
 
+    await this.recurrenceService.ensureCalendar(groupId, year, month);
     const events = await this.eventRepository.findAllByMemberId(
       member.id,
       year,
