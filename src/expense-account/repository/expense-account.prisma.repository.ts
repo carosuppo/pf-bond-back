@@ -714,6 +714,160 @@ export class ExpenseAccountPrismaRepository implements IExpenseAccountRepository
     }
   }
 
+  async deleteExpense(
+    accountId: number,
+    expenseId: number,
+    userId: number,
+  ): Promise<void> {
+    try {
+      await this.prismaService.$transaction(
+        async (tx) => {
+          await this.lockActiveAccount(tx, accountId);
+          const expense = await tx.expense.findFirst({
+            where: {
+              id: expenseId,
+              expenseAccountId: accountId,
+              account: { deletedAt: null },
+            },
+            include: {
+              account: { select: { groupId: true } },
+              payments: { select: { id: true } },
+              shares: {
+                select: {
+                  id: true,
+                  payment: { select: { id: true } },
+                  adjustments: {
+                    select: {
+                      id: true,
+                      expenseId: true,
+                      expenseShareId: true,
+                      status: true,
+                      payment: { select: { id: true } },
+                    },
+                  },
+                },
+              },
+              adjustments: {
+                select: {
+                  id: true,
+                  expenseShareId: true,
+                  status: true,
+                  payment: { select: { id: true } },
+                },
+              },
+            },
+          });
+
+          if (!expense) {
+            throw new NotFoundException(
+              'El gasto no existe en esta cuenta o la cuenta ya no está disponible.',
+            );
+          }
+
+          const requester = await tx.member.findUnique({
+            where: {
+              userId_groupId: {
+                userId,
+                groupId: expense.account.groupId,
+              },
+            },
+            select: { role: true },
+          });
+          const isCreator = expense.createdByUserId === userId;
+          const isGroupAdmin = requester?.role === RoleEnum.ADMIN;
+          if (!isCreator && !isGroupAdmin) {
+            throw new ForbiddenException(
+              'Solo quien registró el gasto o un administrador del grupo puede eliminarlo.',
+            );
+          }
+
+          const shareIds = new Set(expense.shares.map((share) => share.id));
+          const shareAdjustments = expense.shares.flatMap(
+            (share) => share.adjustments,
+          );
+          const directAdjustmentIds = new Set(
+            expense.adjustments.map((adjustment) => adjustment.id),
+          );
+          const shareAdjustmentIds = new Set(
+            shareAdjustments.map((adjustment) => adjustment.id),
+          );
+          const hasInconsistentAdjustments =
+            directAdjustmentIds.size !== shareAdjustmentIds.size ||
+            [...directAdjustmentIds].some(
+              (adjustmentId) => !shareAdjustmentIds.has(adjustmentId),
+            ) ||
+            expense.adjustments.some(
+              (adjustment) => !shareIds.has(adjustment.expenseShareId),
+            ) ||
+            shareAdjustments.some(
+              (adjustment) => adjustment.expenseId !== expenseId,
+            );
+          if (hasInconsistentAdjustments) {
+            throw new ConflictException(
+              'El gasto tiene ajustes vinculados a otras participaciones. No se puede eliminar sin afectar otros datos.',
+            );
+          }
+
+          const hasConfirmedPayments =
+            expense.payments.length > 0 ||
+            expense.shares.some(
+              (share) =>
+                share.payment !== null ||
+                share.adjustments.some(
+                  (adjustment) => adjustment.payment !== null,
+                ),
+            ) ||
+            expense.adjustments.some(
+              (adjustment) => adjustment.payment !== null,
+            );
+          const hasPaidAdjustments = expense.adjustments.some(
+            (adjustment) => adjustment.status === 'PAID',
+          );
+          if (hasConfirmedPayments || hasPaidAdjustments) {
+            throw new BadRequestException(
+              'No se puede eliminar el gasto porque tiene pagos confirmados o ajustes económicos ya pagados.',
+            );
+          }
+
+          const hasPendingAdjustments = expense.adjustments.some(
+            (adjustment) => adjustment.status === 'PENDING',
+          );
+          if (hasPendingAdjustments) {
+            throw new BadRequestException(
+              'No se puede eliminar el gasto porque tiene ajustes económicos pendientes de pago.',
+            );
+          }
+
+          // Canceled adjustments have no active payment history and restrict
+          // the expense/share foreign keys, so remove them before the cascade.
+          await tx.expenseAdjustment.deleteMany({
+            where: { expenseId },
+          });
+          await tx.expense.delete({ where: { id: expenseId } });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        throw new ConflictException(
+          'El gasto o sus obligaciones cambiaron durante la eliminación. Volvé a cargar la cuenta e intentá nuevamente.',
+        );
+      }
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException(
+          'No se puede eliminar el gasto porque conserva relaciones o historial de pagos asociado.',
+        );
+      }
+      throw error;
+    }
+  }
+
   private async reconcileExpenseShareAdjustments(
     tx: Prisma.TransactionClient,
     expenseId: number,

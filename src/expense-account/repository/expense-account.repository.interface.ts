@@ -48,6 +48,11 @@ export interface IExpenseAccountRepository {
     userId: number,
     data: CreateExpenseData,
   ): Promise<ExpenseEntity>;
+  deleteExpense(
+    accountId: number,
+    expenseId: number,
+    userId: number,
+  ): Promise<void>;
   findPendingExpenseShares(
     accountId: number,
     memberId: number,

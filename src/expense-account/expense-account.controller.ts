@@ -97,6 +97,20 @@ export class ExpenseAccountController {
     );
   }
 
+  @Delete(':accountId/expense/:expenseId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteExpense(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Param('expenseId', ParseIntPipe) expenseId: number,
+    @CurrentUser() userId: number,
+  ): Promise<void> {
+    return this.expenseAccountService.deleteExpense(
+      accountId,
+      expenseId,
+      userId,
+    );
+  }
+
   @Get(':id/pending-shares')
   getPendingShares(
     @Param('id', ParseIntPipe) id: number,

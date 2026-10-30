@@ -255,6 +255,18 @@ export class ExpenseAccountService {
     return ExpenseAccountMapper.toExpenseResponse(updatedExpense);
   }
 
+  deleteExpense(
+    accountId: number,
+    expenseId: number,
+    userId: number,
+  ): Promise<void> {
+    return this.expenseAccountRepository.deleteExpense(
+      accountId,
+      expenseId,
+      userId,
+    );
+  }
+
   async getPendingExpenseShares(
     accountId: number,
     userId: number,
