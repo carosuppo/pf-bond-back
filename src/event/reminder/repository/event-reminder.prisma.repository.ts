@@ -16,6 +16,24 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
     eventId: number,
     memberId: number,
   ): Promise<EventReminderRecord[]> {
+    const event = await this.prismaService.event.findUniqueOrThrow({
+      where: { id: eventId },
+    });
+    if (event.recurrenceId !== null) {
+      const settings =
+        await this.prismaService.eventRecurrenceReminder.findMany({
+          where: { recurrenceId: event.recurrenceId, memberId },
+          orderBy: { leadMinutes: 'asc' },
+        });
+      return settings.map((setting) => ({
+        ...setting,
+        eventId,
+        sentAt: null,
+        remindAt: new Date(
+          event.startAt.getTime() - setting.leadMinutes * 60000,
+        ),
+      }));
+    }
     return this.prismaService.eventReminder.findMany({
       where: { eventId, memberId },
       orderBy: { leadMinutes: 'asc' },
@@ -28,6 +46,73 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
     inputs: EventReminderInput[],
   ): Promise<EventReminderRecord[]> {
     return this.prismaService.$transaction(async (tx) => {
+      const event = await tx.event.findUniqueOrThrow({
+        where: { id: eventId },
+      });
+      if (event.recurrenceId !== null) {
+        const recurrenceId = event.recurrenceId;
+        await tx.$queryRaw`SELECT "id" FROM "EventRecurrence" WHERE "id" = ${recurrenceId} FOR UPDATE`;
+        await tx.eventRecurrenceReminder.deleteMany({
+          where: { recurrenceId, memberId },
+        });
+        await tx.eventRecurrenceReminder.createMany({
+          data: inputs.map((input) => ({
+            recurrenceId,
+            memberId,
+            leadMinutes: input.leadMinutes,
+            utcOffsetMinutes: input.utcOffsetMinutes,
+          })),
+        });
+        const now = new Date();
+        await tx.eventReminder.deleteMany({
+          where: {
+            memberId,
+            sentAt: null,
+            event: { recurrenceId, startAt: { gt: now } },
+          },
+        });
+        const occurrences = await tx.event.findMany({
+          where: {
+            recurrenceId,
+            deletedAt: null,
+            startAt: { gt: now },
+            members: { some: { memberId } },
+          },
+          select: { id: true, startAt: true },
+        });
+        await tx.eventReminder.createMany({
+          skipDuplicates: true,
+          data: occurrences.flatMap((occurrence) =>
+            inputs
+              .filter(
+                (input) =>
+                  occurrence.startAt.getTime() - input.leadMinutes * 60000 >
+                  now.getTime(),
+              )
+              .map((input) => ({
+                eventId: occurrence.id,
+                memberId,
+                leadMinutes: input.leadMinutes,
+                utcOffsetMinutes: input.utcOffsetMinutes,
+                remindAt: new Date(
+                  occurrence.startAt.getTime() - input.leadMinutes * 60000,
+                ),
+              })),
+          ),
+        });
+        const settings = await tx.eventRecurrenceReminder.findMany({
+          where: { recurrenceId, memberId },
+          orderBy: { leadMinutes: 'asc' },
+        });
+        return settings.map((setting) => ({
+          ...setting,
+          eventId,
+          sentAt: null,
+          remindAt: new Date(
+            event.startAt.getTime() - setting.leadMinutes * 60000,
+          ),
+        }));
+      }
       await tx.eventReminder.deleteMany({ where: { eventId, memberId } });
 
       if (inputs.length === 0) return [];
@@ -53,10 +138,9 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
     eventId: number,
     memberId: number,
   ): Promise<number> {
-    const result = await this.prismaService.eventReminder.deleteMany({
-      where: { eventId, memberId },
-    });
-    return result.count;
+    const records = await this.findByEventAndMember(eventId, memberId);
+    await this.replace(eventId, memberId, []);
+    return records.length;
   }
 
   async deleteByEventAndMembersNotIn(
@@ -70,6 +154,45 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
   }
 
   async rescheduleUnsent(eventId: number, startAt: Date): Promise<number> {
+    const event = await this.prismaService.event.findUniqueOrThrow({
+      where: { id: eventId },
+    });
+    if (event.recurrenceId !== null) {
+      const recurrenceId = event.recurrenceId;
+      return this.prismaService.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "EventRecurrence" WHERE "id" = ${recurrenceId} FOR UPDATE`;
+        const members = await tx.eventMember.findMany({
+          where: { eventId },
+          select: { memberId: true },
+        });
+        const settings = await tx.eventRecurrenceReminder.findMany({
+          where: {
+            recurrenceId,
+            memberId: { in: members.map((member) => member.memberId) },
+          },
+        });
+        await tx.eventReminder.deleteMany({ where: { eventId, sentAt: null } });
+        const now = Date.now();
+        const result = await tx.eventReminder.createMany({
+          skipDuplicates: true,
+          data: settings
+            .filter(
+              (setting) =>
+                startAt.getTime() - setting.leadMinutes * 60000 > now,
+            )
+            .map((setting) => ({
+              eventId,
+              memberId: setting.memberId,
+              leadMinutes: setting.leadMinutes,
+              utcOffsetMinutes: setting.utcOffsetMinutes,
+              remindAt: new Date(
+                startAt.getTime() - setting.leadMinutes * 60000,
+              ),
+            })),
+        });
+        return result.count;
+      });
+    }
     const pending = await this.prismaService.eventReminder.findMany({
       where: { eventId, sentAt: null },
       select: { id: true, leadMinutes: true },
@@ -77,6 +200,15 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
 
     let updated = 0;
     for (const reminder of pending) {
+      const remindAt = new Date(
+        startAt.getTime() - reminder.leadMinutes * 60000,
+      );
+      if (remindAt.getTime() <= Date.now()) {
+        await this.prismaService.eventReminder.deleteMany({
+          where: { id: reminder.id, sentAt: null },
+        });
+        continue;
+      }
       await this.prismaService.eventReminder.update({
         where: { id: reminder.id },
         data: {
@@ -93,9 +225,13 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
     const result = await this.prismaService.eventReminder.deleteMany({
       where: {
         OR: [
-          { sentAt: { not: null } },
+          { sentAt: { not: null }, event: { recurrenceId: null } },
           { event: { deletedAt: { not: null } } },
           { event: { startAt: { lte: now } } },
+          {
+            event: { recurrenceId: { not: null } },
+            remindAt: { lt: new Date(now.getTime() - 60_000) },
+          },
         ],
       },
     });
@@ -108,6 +244,10 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
         where: {
           sentAt: null,
           remindAt: { lte: now },
+          OR: [
+            { event: { recurrenceId: null } },
+            { remindAt: { gte: new Date(now.getTime() - 60_000) } },
+          ],
           event: {
             deletedAt: null,
             startAt: { gt: now },
@@ -149,13 +289,27 @@ export class EventReminderPrismaRepository implements IEventReminderRepository {
 
       if (eligible.length === 0) return [];
 
-      const ids = eligible.map((reminder) => reminder.id);
-      await tx.eventReminder.updateMany({
-        where: { id: { in: ids }, sentAt: null },
-        data: { sentAt: now },
-      });
-
-      return eligible.map((reminder) => ({
+      const claimed: typeof eligible = [];
+      for (const reminder of eligible) {
+        const result = await tx.eventReminder.updateMany({
+          where: {
+            id: reminder.id,
+            sentAt: null,
+            event: {
+              deletedAt: null,
+              startAt: { gt: now },
+              members: { some: { memberId: reminder.memberId } },
+            },
+            member: {
+              notificationsEnabled: true,
+              user: { notificationsEnabled: true },
+            },
+          },
+          data: { sentAt: now },
+        });
+        if (result.count === 1) claimed.push(reminder);
+      }
+      return claimed.map((reminder) => ({
         id: reminder.id,
         eventId: reminder.event.id,
         eventName: reminder.event.name,

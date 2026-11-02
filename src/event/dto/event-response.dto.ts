@@ -1,4 +1,5 @@
 export class EventResponseDto {
+  recurrenceId?: number | null;
   id!: number;
   name!: string;
   description?: string | null;

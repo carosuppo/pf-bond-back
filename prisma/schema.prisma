@@ -149,14 +149,17 @@ model UserBlock {
 }
 
 model Group {
-  id                       Int     @id @default(autoincrement())
+  documentFolders          DocumentFolder[]
+  documents                FamilyDocument[]
+  id                       Int              @id @default(autoincrement())
   name                     String
   image                    String
   description              String?
-  shareLocationMandatorily Boolean @default(false)
-  invitationCode           String  @unique
+  shareLocationMandatorily Boolean          @default(false)
+  invitationCode           String           @unique
 
   members            Member[]
+  eventRecurrences   EventRecurrence[]
   events             Event[]
   pointsOfInterest   PointOfInterest[]
   reminders          Reminder[]
@@ -167,6 +170,53 @@ model Group {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+}
+
+model DocumentFolder {
+  id        String           @id @default(uuid())
+  groupId   Int
+  name      String           @db.VarChar(200)
+  parentId  String?
+  group     Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  parent    DocumentFolder?  @relation("FolderTree", fields: [parentId, groupId], references: [id, groupId], onDelete: Cascade)
+  children  DocumentFolder[] @relation("FolderTree")
+  documents FamilyDocument[]
+
+  @@unique([id, groupId])
+  @@index([groupId, parentId])
+}
+
+model FamilyDocument {
+  id         String          @id @default(uuid())
+  groupId    Int
+  memberId   Int?
+  memberName String?
+  folderId   String?
+  name       String          @db.VarChar(200)
+  objectPath String          @unique
+  mimeType   String
+  size       Int
+  creatorId  Int
+  version    Int             @default(1)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  group      Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  folder     DocumentFolder? @relation(fields: [folderId, groupId], references: [id, groupId], onDelete: Cascade)
+  object     DocumentObject  @relation(fields: [objectPath], references: [path])
+
+  @@index([groupId, folderId])
+  @@index([groupId, memberId])
+}
+
+// Durable upload journal. Retired versions remain private for disaster recovery.
+model DocumentObject {
+  path      String          @id
+  state     String          @default("pending")
+  createdAt DateTime        @default(now())
+  retiredAt DateTime?
+  document  FamilyDocument?
+
+  @@index([state, createdAt])
 }
 
 model Member {
@@ -184,6 +234,8 @@ model Member {
 
   eventMembers          EventMember[]
   eventReminders        EventReminder[]
+  recurrenceMembers     EventRecurrenceMember[]
+  recurrenceReminders   EventRecurrenceReminder[]
   expenseAccountMembers ExpenseAccountMember[]
 
   @@unique([userId, groupId])
@@ -226,13 +278,15 @@ model GroupInboxNotification {
 }
 
 model Event {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  startAt     DateTime
-  endAt       DateTime?
-  groupId     Int
-  locationId  Int?
+  recurrenceId Int?
+  occurrenceAt DateTime?
+  id           Int       @id @default(autoincrement())
+  name         String
+  description  String?
+  startAt      DateTime
+  endAt        DateTime?
+  groupId      Int
+  locationId   Int?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -243,6 +297,11 @@ model Event {
   location        Location?        @relation(fields: [locationId], references: [id])
   reminders       EventReminder[]
   expenseAccounts ExpenseAccount[]
+
+  recurrence EventRecurrence? @relation(fields: [recurrenceId], references: [id])
+
+  @@unique([recurrenceId, occurrenceAt])
+  @@index([groupId, startAt])
 }
 
 model EventMember {
@@ -424,4 +483,51 @@ model SecurityAlert {
   createdAt      DateTime            @default(now())
 
   @@index([type, correlationKey, createdAt])
+}
+
+enum EventRecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model EventRecurrence {
+  id          Int                       @id @default(autoincrement())
+  frequency   EventRecurrenceFrequency
+  until       DateTime?
+  startAt     DateTime
+  endAt       DateTime?
+  name        String
+  description String?
+  groupId     Int
+  group       Group                     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  members     EventRecurrenceMember[]
+  reminders   EventRecurrenceReminder[]
+  events      Event[]
+  createdAt   DateTime                  @default(now())
+
+  @@index([groupId])
+}
+
+model EventRecurrenceMember {
+  recurrenceId Int
+  memberId     Int
+  recurrence   EventRecurrence @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+  member       Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([recurrenceId, memberId])
+  @@index([memberId])
+}
+
+model EventRecurrenceReminder {
+  id               Int             @id @default(autoincrement())
+  recurrenceId     Int
+  memberId         Int
+  leadMinutes      Int
+  utcOffsetMinutes Int?
+  recurrence       EventRecurrence @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+  member           Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([recurrenceId, memberId, leadMinutes])
+  @@index([memberId])
 }

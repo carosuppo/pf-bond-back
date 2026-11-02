@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsObject,
+  ValidateNested,
   IsDate,
   IsInt,
   IsNotEmpty,
@@ -10,7 +12,15 @@ import {
 import { IsAfter } from '../../common/validators/after-date.validator';
 import { IsFutureDate } from '../../common/validators/future-date.validator';
 
+import { EventRecurrenceDto } from './event-recurrence.dto';
+
 export class CreateEventDto {
+  @IsOptional()
+  @IsObject({ message: 'La recurrencia debe ser un objeto.' })
+  @ValidateNested()
+  @Type(() => EventRecurrenceDto)
+  recurrence?: EventRecurrenceDto;
+
   @IsString({
     message: 'El nombre del evento debe ser un texto.',
   })
