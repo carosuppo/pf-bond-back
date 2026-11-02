@@ -1,7 +1,7 @@
 export const MINIMUM_ACCOUNT_AGE_YEARS = 13;
 export const AGE_VERIFICATION_REQUIRED_MESSAGE = 'AGE_VERIFICATION_REQUIRED';
 export const MINIMUM_AGE_RESTRICTION_MESSAGE =
-  'Bond está disponible para personas de 13 años o más.';
+  'La fecha ingresada no pudo ser validada.';
 
 export function meetsMinimumAccountAge(
   birthDate: string,

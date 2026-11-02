@@ -1,6 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
   Param,
   ParseIntPipe,
   Post,
@@ -9,23 +14,145 @@ import {
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { SessionAuthGuard } from '../user/guard/session-auth.guard';
 import { CreateExpenseAccountDto } from './dto/create-expense-account.dto';
+import { CreateExpenseDto } from './dto/create-expense.dto';
+import { ExpenseAccountDetailResponseDto } from './dto/expense-account-detail-response.dto';
 import { ExpenseAccountResponseDto } from './dto/expense-account-response.dto';
+import { ExpensePaymentResponseDto } from './dto/expense-payment-response.dto';
+import { ExpenseResponseDto } from './dto/expense-response.dto';
+import { MyExpenseAccountResponseDto } from './dto/my-expense-account-response.dto';
+import { PendingExpenseShareResponseDto } from './dto/pending-expense-share-response.dto';
+import { PendingExpenseAdjustmentResponseDto } from './dto/pending-expense-adjustment-response.dto';
+import { RegisterExpensePaymentsDto } from './dto/register-expense-payments.dto';
+import { UpdateExpenseAccountDto } from './dto/update-expense-account.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpenseAccountService } from './expense-account.service';
 
 @UseGuards(SessionAuthGuard)
-@Controller('group/:groupId/expense-account')
+@Controller('expense-account')
 export class ExpenseAccountController {
   constructor(private readonly expenseAccountService: ExpenseAccountService) {}
 
   @Post()
   create(
-    @Param('groupId', ParseIntPipe) groupId: number,
     @Body() dto: CreateExpenseAccountDto,
     @CurrentUser() userId: number,
   ): Promise<ExpenseAccountResponseDto> {
-    return this.expenseAccountService.createExpenseAccount(
+    return this.expenseAccountService.createExpenseAccount(dto, userId);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateExpenseAccountDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpenseAccountResponseDto> {
+    return this.expenseAccountService.updateExpenseAccount(id, dto, userId);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<void> {
+    return this.expenseAccountService.deleteExpenseAccount(id, userId);
+  }
+
+  @Get()
+  getMine(
+    @CurrentUser() userId: number,
+  ): Promise<MyExpenseAccountResponseDto[]> {
+    return this.expenseAccountService.getMyAccounts(userId);
+  }
+
+  @Get(':id')
+  getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<ExpenseAccountDetailResponseDto> {
+    return this.expenseAccountService.getAccountDetail(id, userId);
+  }
+
+  @Post(':id/expense')
+  createExpense(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateExpenseDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpenseResponseDto> {
+    return this.expenseAccountService.createExpense(dto, id, userId);
+  }
+
+  @Patch(':accountId/expense/:expenseId')
+  updateExpense(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Param('expenseId', ParseIntPipe) expenseId: number,
+    @Body() dto: UpdateExpenseDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpenseResponseDto> {
+    return this.expenseAccountService.updateExpense(
       dto,
-      groupId,
+      accountId,
+      expenseId,
+      userId,
+    );
+  }
+
+  @Delete(':accountId/expense/:expenseId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteExpense(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Param('expenseId', ParseIntPipe) expenseId: number,
+    @CurrentUser() userId: number,
+  ): Promise<void> {
+    return this.expenseAccountService.deleteExpense(
+      accountId,
+      expenseId,
+      userId,
+    );
+  }
+
+  @Get(':id/pending-shares')
+  getPendingShares(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<PendingExpenseShareResponseDto[]> {
+    return this.expenseAccountService.getPendingExpenseShares(id, userId);
+  }
+
+  @Get(':id/pending-adjustments')
+  getPendingAdjustments(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<PendingExpenseAdjustmentResponseDto[]> {
+    return this.expenseAccountService.getPendingExpenseAdjustments(id, userId);
+  }
+
+  @Post(':id/payments')
+  registerPayments(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RegisterExpensePaymentsDto,
+    @CurrentUser() userId: number,
+  ): Promise<ExpensePaymentResponseDto[]> {
+    return this.expenseAccountService.registerExpensePayments(id, userId, dto);
+  }
+
+  @Post(':id/payments/all')
+  registerAllPayments(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() userId: number,
+  ): Promise<ExpensePaymentResponseDto[]> {
+    return this.expenseAccountService.registerAllExpensePayments(id, userId);
+  }
+
+  @Patch(':accountId/payments/:paymentId/annul')
+  annulPayment(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Param('paymentId', ParseIntPipe) paymentId: number,
+    @CurrentUser() userId: number,
+  ): Promise<ExpensePaymentResponseDto> {
+    return this.expenseAccountService.annulExpensePayment(
+      accountId,
+      paymentId,
       userId,
     );
   }

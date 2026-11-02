@@ -9,6 +9,7 @@ import { ActivityService } from './metrics/activity.service';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DocumentModule } from './document/document.module';
 import { OperationalAlertService } from './common/logging/operational-alert.service';
 import { OperationalLoggingInterceptor } from './common/logging/operational-logging.interceptor';
 import { PersistentLogShutdownService } from './common/logging/persistent-log-shutdown.service';
@@ -29,6 +30,7 @@ import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
+    DocumentModule,
     GroupModule,
     MemberModule,
     LocationModule,

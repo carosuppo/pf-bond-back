@@ -63,11 +63,8 @@ export class EventReminderService {
     groupId: number,
     userId: number,
   ): Promise<EventRemindersResponseDto> {
-    const { memberId, startAt } = await this.requireActiveEventMember(
-      userId,
-      groupId,
-      eventId,
-    );
+    const { memberId, startAt, recurrenceId } =
+      await this.requireActiveEventMember(userId, groupId, eventId);
 
     if (startAt.getTime() <= Date.now()) {
       throw new BadRequestException(
@@ -92,7 +89,7 @@ export class EventReminderService {
           `La anticipación debe estar entre ${MIN_REMINDER_LEAD_MINUTES} minuto y ${MAX_REMINDER_LEAD_MINUTES} minutos (4 semanas).`,
         );
       }
-      if (startAt.getTime() - lead * 60000 <= now) {
+      if (recurrenceId == null && startAt.getTime() - lead * 60000 <= now) {
         throw new BadRequestException(
           `La anticipación de ${lead} minutos ya pasó para este evento.`,
         );
@@ -189,7 +186,11 @@ export class EventReminderService {
     userId: number,
     groupId: number,
     eventId: number,
-  ): Promise<{ memberId: number; startAt: Date }> {
+  ): Promise<{
+    memberId: number;
+    startAt: Date;
+    recurrenceId?: number | null;
+  }> {
     const member = await this.eventValidator.requireMembership(userId, groupId);
     const event = await this.eventRepository.findByIdAndMemberId(
       eventId,
@@ -200,7 +201,11 @@ export class EventReminderService {
       throw new NotFoundException('El evento no existe.');
     }
 
-    return { memberId: member.id, startAt: event.startAt };
+    return {
+      memberId: member.id,
+      startAt: event.startAt,
+      recurrenceId: event.recurrenceId,
+    };
   }
 
   private toResponse(record: EventReminderRecord): EventReminderResponseDto {
