@@ -19,6 +19,17 @@ enum GroupJoinRequestStatus {
   REJECTED
 }
 
+enum ExpenseSplitType {
+  EQUAL
+  CUSTOM
+}
+
+enum ExpenseAdjustmentStatus {
+  PENDING
+  PAID
+  CANCELED
+}
+
 // Models
 enum NotificationType {
   POINT_OF_INTEREST_CREATED
@@ -63,6 +74,9 @@ model User {
   devicePushTokens        DevicePushToken[]
   groupJoinRequests       GroupJoinRequest[]
   groupInboxNotifications GroupInboxNotification[]
+  createdExpenseAccounts  ExpenseAccount[]         @relation("ExpenseAccountCreator")
+  createdExpenses         Expense[]                @relation("ExpenseCreator")
+  lastEditedExpenses      Expense[]                @relation("ExpenseLastEditor")
 
   emailVerifiedAt         DateTime?
   ageVerifiedAt           DateTime?
@@ -232,11 +246,18 @@ model Member {
   group Group @relation(fields: [groupId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
 
-  eventMembers          EventMember[]
-  eventReminders        EventReminder[]
-  recurrenceMembers     EventRecurrenceMember[]
-  recurrenceReminders   EventRecurrenceReminder[]
-  expenseAccountMembers ExpenseAccountMember[]
+  eventMembers               EventMember[]
+  eventReminders             EventReminder[]
+  recurrenceMembers          EventRecurrenceMember[]
+  recurrenceReminders        EventRecurrenceReminder[]
+  expenseAccountMembers      ExpenseAccountMember[]
+  paidExpenses               Expense[]                 @relation("ExpensePayer")
+  expenseShares              ExpenseShare[]            @relation("ExpenseShareMember")
+  sentExpensePayments        ExpensePayment[]          @relation("ExpensePaymentSender")
+  receivedExpensePayments    ExpensePayment[]          @relation("ExpensePaymentRecipient")
+  debtorExpenseAdjustments   ExpenseAdjustment[]       @relation("ExpenseAdjustmentDebtor")
+  creditorExpenseAdjustments ExpenseAdjustment[]       @relation("ExpenseAdjustmentCreditor")
+  settledExpenseAdjustments  ExpenseAdjustment[]       @relation("ExpenseAdjustmentSettledBy")
 
   @@unique([userId, groupId])
 }
@@ -337,17 +358,21 @@ model EventReminder {
 }
 
 model ExpenseAccount {
-  id      Int    @id @default(autoincrement())
-  name    String
-  groupId Int
-  eventId Int?
+  id              Int    @id @default(autoincrement())
+  name            String
+  groupId         Int
+  eventId         Int?
+  createdByUserId Int?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  group   Group                  @relation(fields: [groupId], references: [id])
-  event   Event?                 @relation(fields: [eventId], references: [id])
-  members ExpenseAccountMember[]
+  group     Group                  @relation(fields: [groupId], references: [id])
+  event     Event?                 @relation(fields: [eventId], references: [id])
+  createdBy User?                  @relation("ExpenseAccountCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  members   ExpenseAccountMember[]
+  expenses  Expense[]
 
   @@index([groupId])
   @@index([eventId])
@@ -363,6 +388,97 @@ model ExpenseAccountMember {
 
   @@unique([expenseAccountId, memberId])
   @@index([memberId])
+}
+
+model Expense {
+  id                 Int              @id @default(autoincrement())
+  expenseAccountId   Int
+  payerMemberId      Int
+  createdByUserId    Int?
+  lastEditedByUserId Int?
+  lastEditedAt       DateTime?
+  title              String?
+  amountCents        Int
+  splitType          ExpenseSplitType
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account      ExpenseAccount      @relation(fields: [expenseAccountId], references: [id], onDelete: Cascade)
+  payer        Member              @relation("ExpensePayer", fields: [payerMemberId], references: [id], onDelete: Cascade)
+  createdBy    User?               @relation("ExpenseCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lastEditedBy User?               @relation("ExpenseLastEditor", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
+  shares       ExpenseShare[]
+  payments     ExpensePayment[]
+  adjustments  ExpenseAdjustment[]
+
+  @@index([expenseAccountId])
+  @@index([payerMemberId])
+}
+
+model ExpenseShare {
+  id          Int     @id @default(autoincrement())
+  expenseId   Int
+  memberId    Int
+  amountCents Int
+  isCurrent   Boolean @default(true)
+
+  expense     Expense             @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member      Member              @relation("ExpenseShareMember", fields: [memberId], references: [id], onDelete: Cascade)
+  payment     ExpensePayment?
+  adjustments ExpenseAdjustment[]
+
+  @@unique([expenseId, memberId])
+  @@index([memberId])
+}
+
+model ExpenseAdjustment {
+  id                Int                     @id @default(autoincrement())
+  expenseId         Int
+  expenseShareId    Int
+  debtorMemberId    Int
+  creditorMemberId  Int
+  amountCents       Int
+  status            ExpenseAdjustmentStatus @default(PENDING)
+  settledByMemberId Int?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  settledAt         DateTime?
+
+  expense      Expense         @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  expenseShare ExpenseShare    @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
+  debtor       Member          @relation("ExpenseAdjustmentDebtor", fields: [debtorMemberId], references: [id], onDelete: Restrict)
+  creditor     Member          @relation("ExpenseAdjustmentCreditor", fields: [creditorMemberId], references: [id], onDelete: Restrict)
+  settledBy    Member?         @relation("ExpenseAdjustmentSettledBy", fields: [settledByMemberId], references: [id], onDelete: Restrict)
+  payment      ExpensePayment?
+
+  @@index([expenseId, status])
+  @@index([expenseShareId, status])
+  @@index([debtorMemberId, status])
+  @@index([creditorMemberId, status])
+}
+
+model ExpensePayment {
+  id             Int      @id @default(autoincrement())
+  expenseId      Int
+  expenseShareId Int?     @unique
+  adjustmentId   Int?     @unique
+  fromMemberId   Int
+  toMemberId     Int
+  amountCents    Int
+  createdAt      DateTime @default(now())
+  confirmedAt    DateTime @default(now())
+
+  expense      Expense            @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  expenseShare ExpenseShare?      @relation(fields: [expenseShareId], references: [id], onDelete: Restrict)
+  adjustment   ExpenseAdjustment? @relation(fields: [adjustmentId], references: [id], onDelete: Restrict)
+  fromMember   Member             @relation("ExpensePaymentSender", fields: [fromMemberId], references: [id], onDelete: Restrict)
+  toMember     Member             @relation("ExpensePaymentRecipient", fields: [toMemberId], references: [id], onDelete: Restrict)
+
+  @@index([expenseId])
+  @@index([adjustmentId])
+  @@index([fromMemberId])
+  @@index([toMemberId])
 }
 
 model Reminder {

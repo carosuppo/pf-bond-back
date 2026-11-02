@@ -24,6 +24,15 @@ export class CreateExpenseAccountDto {
   })
   name!: string;
 
+  @Type(() => Number)
+  @IsInt({
+    message: 'El grupo debe ser un número entero.',
+  })
+  @IsNotEmpty({
+    message: 'El grupo de la cuenta es obligatorio.',
+  })
+  groupId!: number;
+
   @IsArray({
     message: 'Los miembros deben ser un arreglo.',
   })
