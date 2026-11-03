@@ -299,11 +299,16 @@ def timestamp(value):
 def monitor_wal():
     query = (
         "SELECT json_build_object("
-        "'wal_bytes', wal_bytes, "
         "'failed_count', failed_count, "
-        "'last_failed_time', last_failed_time, "
-        "'last_archived_time', last_archived_time)::text "
-        "FROM pg_stat_wal CROSS JOIN pg_stat_archiver"
+        "'pending_archive_count', pending.pending_count, "
+        "'oldest_pending_archive_seconds', pending.oldest_pending_seconds)::text "
+        "FROM pg_stat_archiver "
+        "CROSS JOIN LATERAL ("
+        "SELECT count(*) AS pending_count, "
+        "COALESCE(EXTRACT(EPOCH FROM now() - MIN((pg_stat_file('pg_wal/archive_status/' || name)).modification)), 0) AS oldest_pending_seconds "
+        "FROM pg_ls_dir('pg_wal/archive_status') AS archive_files(name) "
+        "WHERE name LIKE '%.ready'"
+        ") AS pending"
     )
     result = run_command(
         ["psql", "-XAt", "-d", os.environ.get("PGDATABASE", "bond"), "-c", query],
@@ -330,10 +335,8 @@ def monitor_wal():
         return
     if int(current["failed_count"]) > int(previous["failed_count"]):
         raise RuntimeError("PostgreSQL informó un nuevo fallo al archivar WAL")
-    if int(current["wal_bytes"]) > int(previous["wal_bytes"]):
-        archived_at = timestamp(current.get("last_archived_time"))
-        if archived_at is None or now - archived_at > timedelta(minutes=5):
-            raise RuntimeError("Hay actividad nueva en PostgreSQL, pero no se archivaron WAL en los últimos 5 minutos")
+    if int(current["pending_archive_count"]) > 0 and float(current["oldest_pending_archive_seconds"]) > 300:
+        raise RuntimeError("Hay archivos WAL pendientes de envío desde hace más de 5 minutos")
 
 
 def restore_media():
