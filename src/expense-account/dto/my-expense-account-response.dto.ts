@@ -9,4 +9,5 @@ export class MyExpenseAccountResponseDto {
   eventName!: string | null;
   balanceCents!: number;
   status!: BalanceStatus;
+  lastMovementAt!: Date | null;
 }

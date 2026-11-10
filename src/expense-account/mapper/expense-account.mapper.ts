@@ -56,6 +56,14 @@ export class ExpenseAccountMapper {
     const myBalance =
       balances.find((balance) => balance.memberId === account.myMemberId)
         ?.balanceCents ?? 0;
+    const lastMovementAt = account.movements.reduce<Date | null>(
+      (latestMovementAt, movement) =>
+        latestMovementAt === null ||
+        movement.createdAt.getTime() > latestMovementAt.getTime()
+          ? movement.createdAt
+          : latestMovementAt,
+      null,
+    );
 
     return {
       id: account.id,
@@ -66,6 +74,7 @@ export class ExpenseAccountMapper {
       eventName: account.eventName,
       balanceCents: myBalance,
       status: toBalanceStatus(myBalance),
+      lastMovementAt,
     };
   }
 
